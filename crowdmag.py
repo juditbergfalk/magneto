@@ -37,7 +37,7 @@ def SplitTime(date):
     
     # Strip time
     for i in range(len(date)):
-        dt = datetime.fromisoformat(date[i]) 
+        dt = datetime.fromisoformat(date[i])
         # year
         yr = float(dt.strftime('%Y'))
         year.append(yr)    
@@ -61,7 +61,7 @@ def SplitTime(date):
         ymd.append(yearmonthday)
         # hour:minute:second
         hourminutesecond = dt.strftime('%H:%M:%S')
-        hms.append(hourminutesecond)
+        hms.append(hourminutesecond)       
     
     # Change lists to numpy arrays
     year = np.array(year)
@@ -73,7 +73,15 @@ def SplitTime(date):
     ymd = np.array(ymd)
     hms = np.array(hms)
     
-    return year,month,day,hour,minute,second,ymd,hms
+    # Total seconds 
+    timeinseconds = []
+    for t in range(len(year)):
+        dt = datetime(int(year[t]),int(month[t]),int(day[t]),int(hour[t]),int(minute[t]),int(second[t]))
+        dtseconds = (dt-datetime(1970,1,1)).total_seconds()
+        timeinseconds.append(dtseconds)
+    timeinseconds = np.array(timeinseconds)
+    
+    return year,month,day,hour,minute,second,ymd,hms,timeinseconds
 
 ##################################################
 ### Horizontal component of the magnetic field ###
@@ -100,14 +108,14 @@ def TotalMag(x,y,z):
 ### Plot magnetic field versus time ###
 #######################################
 
-def PlotBCrowdMag(filename,fieldtype=1,start=3,end=-1):
+def PlotBCrowdMag(filename,fieldtype='T',start=3,end=-1):
     
     # Key:
-    ##### fieldtype = 1  - total magnetic field
-    ##### fieldtype = 2  - horizontal component of field
-    ##### fieldtype = 3  - x-component of magnetic field
-    ##### fieldtype = 4  - y-component of magnetic field
-    ##### fieldtype = 5  - z-component of magnetic field
+    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'H'  - horizontal component of field
+    ##### fieldtype = 'X'  - x-component of magnetic field
+    ##### fieldtype = 'Y'  - y-component of magnetic field
+    ##### fieldtype = 'Z'  - z-component of magnetic field
         
     # Date and Magnetic field data (x,y,z)
     date, magX, magY, magZ = ReadCSVCrowdMag(filename,start,end)
@@ -122,33 +130,33 @@ def PlotBCrowdMag(filename,fieldtype=1,start=3,end=-1):
     plt.title("CrowdMag : {} - {}".format(starttime,endtime), fontsize=16)
     plt.xlabel("UTC time", fontsize=12)
     
-    if fieldtype == 1:
+    if fieldtype == 'T':
         # Total magnetic field
         totalmag = TotalMag(magX,magY,magZ) 
         ax.scatter(date,totalmag)
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(totalmag[:-3])-500,np.max(totalmag[:-3])+500)
     
-    if fieldtype == 2:        
+    if fieldtype == 'H':        
         # Horizontal magnetic field
         horizontalmag = HorizontalMag(magX,magY)          
         ax.scatter(date,horizontalmag)
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(horizontalmag[:-3])-500,np.max(horizontalmag[:-3])+500)
     
-    if fieldtype == 3:        
+    if fieldtype == 'X':        
         # Magnetic field - X direction        
         ax.scatter(date,magX)
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
         plt.ylim(np.min(magX[:-3])-500,np.max(magX[:-3])+500)
     
-    if fieldtype == 4:
+    if fieldtype == 'Y':
         # Magnetic field - Y direction
         ax.scatter(date,magY)
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         plt.ylim(np.min(magY[:-3])-500,np.max(magY[:-3])+500)
         
-    if fieldtype == 5:
+    if fieldtype == 'Z':
         # Magnetic field - Z direction
         ax.scatter(date,magZ)
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)

@@ -57,65 +57,67 @@ def ReadCSVGeoMag(filename,start=3,end=-1):
     time = rows[:,1][start:end]
     doy = rows[:,2][start:end]         # day of year
     magfield = rows[:,3][start:end]
+   
+    # Fuse date and time to match CrowdMag date
+    datetime = []
+    for t in range(len(date)):
+        dt = date[t] + ' ' + time[t][0:8]
+        datetime.append(dt)
+    datetime = np.array(datetime) 
     
-    # Change timestamp to seconds
-    striptime = []
-    for t in time:
-        t = t[1:16]
-        h, m, s = t.split(':')
-        t = int(h) * 3600 + int(m) * 60 + float(s)
-        striptime.append(t)
-    striptime = np.array(striptime)    
+    # Total time in seconds
+    timeinseconds = cm.SplitTime(datetime)[8] 
     
     # Define location and component of magnetic field
     for lines in open(filename, 'r'):
         if lines.startswith('DATE'):
             location = lines.split(" ")[21]
 
-    return date,time,doy,magfield,striptime,location
+    return date,time,doy,magfield,timeinseconds,location
 
 ##########################################
 ### Download and define all components ###
 ##########################################
 
-def DefineAllComponents(filename,observatory='BRW',start=0,end=-1):
+def DefineAllComponents(filename,observatory='BRW',start=0,end=-1,download=True):
     
     # Extract start and end times
     dateCM = cm.ReadCSVCrowdMag(filename)[0]
     starttimeYMD = cm.SplitTime(dateCM)[6][0]      # year-month-day
     endtimeYMD = cm.SplitTime(dateCM)[6][-1]       # year-month-day
     
-    # Download files from GeoMag
-    DownloadGeoMag(filename,component='X',observatory=observatory)
-    DownloadGeoMag(filename,component='Y',observatory=observatory)
-    DownloadGeoMag(filename,component='Z',observatory=observatory)
-    DownloadGeoMag(filename,component='H',observatory=observatory)
+    if download == True:    # Only download the files if needed
+        # Download files from GeoMag
+        DownloadGeoMag(filename,component='X',observatory=observatory)
+        DownloadGeoMag(filename,component='Y',observatory=observatory)
+        DownloadGeoMag(filename,component='Z',observatory=observatory)
+        DownloadGeoMag(filename,component='H',observatory=observatory)
     
     # Read in files    
-    date,time,doy,magX,striptime,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'
+    date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'
                                                           .format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)
     magY = ReadCSVGeoMag('data/geomag/geomag{}Y_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
     magZ = ReadCSVGeoMag('data/geomag/geomag{}Z_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
     magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
     
-    return date,time,doy,magX,magY,magZ,magH,location
+    return date,time,doy,magX,magY,magZ,magH,timeinseconds,location
     
 
 #######################################
 ### Plot magnetic field versus time ###
 #######################################
 
-def PlotBGeoMag(filename,observatory,fieldtype=1,start=0,end=-1):
+def PlotBGeoMag(filename,observatory='BRW',fieldtype='T',start=0,end=-1,download=True):
     
     # Key:
-    ##### fieldtype = 1  - total magnetic field
-    ##### fieldtype = 2  - horizontal component of field
-    ##### fieldtype = 3  - x-component of magnetic field
-    ##### fieldtype = 4  - y-component of magnetic field
-    ##### fieldtype = 5  - z-component of magnetic field
+    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'H'  - horizontal component of field
+    ##### fieldtype = 'X'  - x-component of magnetic field
+    ##### fieldtype = 'Y'  - y-component of magnetic field
+    ##### fieldtype = 'Z'  - z-component of magnetic field
         
     # Date, time, day of year, magnetic field data (x,y,z,h), location
-    date,time,doy,magX,magY,magZ,magH,location = DefineAllComponents(filename,observatory,start,end)
+    date,time,doy,magX,magY,magZ,magH,timeinseconds,location = DefineAllComponents(filename,observatory,start,end,download)
     
     # Time frame
     startdate = date[0]
@@ -136,33 +138,32 @@ def PlotBGeoMag(filename,observatory,fieldtype=1,start=0,end=-1):
     plt.title("GeoMag : {} {} - {} {}".format(startdate,starttime,enddate,endtime), fontsize=16)
     plt.xlabel("UTC time", fontsize=12)
     
-    if fieldtype == 1:
+    if fieldtype == 'T':
         # Total magnetic field
         totalmag = cm.TotalMag(magX,magY,magZ) 
         ax.scatter(datetime,totalmag)
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(totalmag)-100,np.max(totalmag)+100)
     
-    if fieldtype == 2:        
-        # Horizontal magnetic field
-        horizontalmag = HorizontalMag(magX,magY)          
-        ax.scatter(datetime,horizontalmag)
+    if fieldtype == 'H':        
+        # Horizontal magnetic field        
+        ax.scatter(datetime,magH)
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
-        plt.ylim(np.min(horizontalmag)-100,np.max(horizontalmag)+100)
+        plt.ylim(np.min(magH)-100,np.max(magH)+100)
     
-    if fieldtype == 3:        
+    if fieldtype == 'X':        
         # Magnetic field - X direction        
         ax.scatter(datetime,magX)
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
         plt.ylim(np.min(magX)-100,np.max(magX)+100)
     
-    if fieldtype == 4:
+    if fieldtype == 'Y':
         # Magnetic field - Y direction
         ax.scatter(datetime,magY)
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         plt.ylim(np.min(magY)-100,np.max(magY)+100)
         
-    if fieldtype == 5:
+    if fieldtype == 'Z':
         # Magnetic field - Z direction
         ax.scatter(datetime,magZ)
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
