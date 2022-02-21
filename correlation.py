@@ -54,35 +54,35 @@ def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,dow
     if fieldtype == 'T':
         # Total magnetic field
         scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
-        ax.scatter(CMtimesec,scale*CMtotalmag, label="CrowdMag data")
+        ax.scatter(CMtimesec,scale*CMtotalmag, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMtotalmag, label="GeoMag data")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field 
         scale = np.mean(GMmagH)/np.mean(CMmagH)
-        ax.scatter(CMtimesec,scale*CMmagH, label="CrowdMag data")
+        ax.scatter(CMtimesec,scale*CMmagH, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagH, label="GeoMag data")
         plt.ylabel("Magnetic Field - H (nT)", fontsize=12)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction 
         scale = np.mean(GMmagX)/np.mean(CMmagX)
-        ax.scatter(CMtimesec,scale*CMmagX, label="CrowdMag data")
+        ax.scatter(CMtimesec,scale*CMmagX, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagX, label="GeoMag data")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
         scale = np.mean(GMmagY)/np.mean(CMmagY)
-        ax.scatter(CMtimesec,scale*CMmagY, label="CrowdMag data")
+        ax.scatter(CMtimesec,scale*CMmagY, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagY, label="GeoMag data")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
         scale = np.mean(GMmagZ)/np.mean(CMmagZ)
-        ax.scatter(CMtimesec,scale*CMmagZ, label="CrowdMag data")
+        ax.scatter(CMtimesec,scale*CMmagZ, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagZ, label="GeoMag data")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         
