@@ -133,32 +133,32 @@ def PlotBCrowdMag(filename,fieldtype='T',start=3,end=-1):
     if fieldtype == 'T':
         # Total magnetic field
         totalmag = TotalMag(magX,magY,magZ) 
-        ax.scatter(date,totalmag)
+        ax.scatter(date,totalmag, label="Total Magnetic Field")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(totalmag[:-3])-500,np.max(totalmag[:-3])+500)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field
         horizontalmag = HorizontalMag(magX,magY)          
-        ax.scatter(date,horizontalmag)
+        ax.scatter(date,horizontalmag, label="Horizontal Magnetic Field")
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(horizontalmag[:-3])-500,np.max(horizontalmag[:-3])+500)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction        
-        ax.scatter(date,magX)
+        ax.scatter(date,magX, label="Magnetic Field - X component")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
         plt.ylim(np.min(magX[:-3])-500,np.max(magX[:-3])+500)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        ax.scatter(date,magY)
+        ax.scatter(date,magY, label="Magnetic Field - Y component")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         plt.ylim(np.min(magY[:-3])-500,np.max(magY[:-3])+500)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        ax.scatter(date,magZ)
+        ax.scatter(date,magZ, label="Magnetic Field - Z component")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         plt.ylim(np.min(magZ[:-3])-500,np.max(magZ[:-3])+500)
  
@@ -166,4 +166,5 @@ def PlotBCrowdMag(filename,fieldtype='T',start=3,end=-1):
     xticks = ticker.MaxNLocator(10)
     ax.xaxis.set_major_locator(xticks)
     plt.xticks(fontsize = 8)
+    plt.legend()
     plt.show()

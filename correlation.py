@@ -199,7 +199,8 @@ def ScatterPlot(filename,observatory='BRW',fieldtype='T',start=3,end=-1,download
     
     # Plot
     plt.figure(figsize=(9,9))
-    plt.title("CrowdMag vs GeoMag - Scatter Plot: {} - {}".format(starttime,endtime), fontsize=14)
+    plt.suptitle("CrowdMag vs GeoMag Scatter Plot", fontsize=16)
+    plt.title("{} - {}".format(starttime,endtime), fontsize=16)
     
     if fieldtype == 'T':
         # Total magnetic field
