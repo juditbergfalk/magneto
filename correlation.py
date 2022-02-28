@@ -9,7 +9,7 @@ import lmfit as lm                                              # Fitting
 ### Overlay Plot CrowdMag vs GeoMag ###
 #######################################
 
-def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,download=True):
+def PlotOverlay2Data(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,startGM=0,endGM=-1,download=True):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -19,16 +19,20 @@ def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,dow
     ##### fieldtype = 'Z'  - z-component of magnetic field
     
     # CrowdMag data
-    CMdate,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filename,start,end)
+    CMdate,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM)
     CMmagH = cm.HorizontalMag(CMmagX,CMmagY)
     CMtotalmag = cm.TotalMag(CMmagX,CMmagY,CMmagZ)
     
     # Time in seconds 
     CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
     
+    # Start time in seconds
+    CMstarttime = cm.SplitTime(CMdate)[8][0]
+    
     # GeoMag data
-    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filename,observatory,
-                                                                                                  start,end,download)
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
+                                                                                                  startCM,endCM,startGM,endGM,
+                                                                                                  download)
     GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
     
     # Fuse date and time to match CrowdMag date
@@ -40,6 +44,15 @@ def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,dow
     
     # Time in seconds 
     GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
+    
+    # Start time in seconds
+    GMstarttime = cm.SplitTime(GMdatetime)[8][0]
+    
+    # Time shift calculation
+    if GMstarttime > CMstarttime:
+        timeshift = GMstarttime - CMstarttime
+    if CMstarttime > GMstarttime:
+        timeshift = CMstarttime - GMstarttime
     
     # Time frame
     starttime = CMdate[0]
@@ -54,14 +67,14 @@ def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,dow
     if fieldtype == 'T':
         # Total magnetic field
         scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
-        ax.scatter(CMtimesec,scale*CMtotalmag, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.scatter(CMtimesec+timeshift,scale*CMtotalmag, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMtotalmag, label="GeoMag data")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field 
         scale = np.mean(GMmagH)/np.mean(CMmagH)
-        ax.scatter(CMtimesec,scale*CMmagH, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.scatter(CMtimesec+timeshift,scale*CMmagH, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagH, label="GeoMag data")
         plt.ylabel("Magnetic Field - H (nT)", fontsize=12)
     
@@ -69,20 +82,20 @@ def PlotOverlay2Data(filename,observatory='BRW',fieldtype='T',start=3,end=-1,dow
         # Magnetic field - X direction 
         scale = np.mean(GMmagX)/np.mean(CMmagX)
         ax.scatter(CMtimesec,scale*CMmagX, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.scatter(GMtimesec,GMmagX, label="GeoMag data")
+        ax.scatter(GMtimesec+timeshift,GMmagX, label="GeoMag data")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
         scale = np.mean(GMmagY)/np.mean(CMmagY)
-        ax.scatter(CMtimesec,scale*CMmagY, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.scatter(CMtimesec+timeshift,scale*CMmagY, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagY, label="GeoMag data")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
         scale = np.mean(GMmagZ)/np.mean(CMmagZ)
-        ax.scatter(CMtimesec,scale*CMmagZ, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.scatter(CMtimesec+timeshift,scale*CMmagZ, label="CrowdMag data, scaled by {:.3f}".format(scale))
         ax.scatter(GMtimesec,GMmagZ, label="GeoMag data")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         
@@ -144,7 +157,7 @@ def FittingPolyfit(data1,data2):
 ### Scatter Plot of CrowdMag and GeoMag data ###
 ################################################
 
-def ScatterPlot(filename,observatory='BRW',fieldtype='T',start=3,end=-1,download=True):
+def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,startGM=0,endGM=0,download=True):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -154,7 +167,7 @@ def ScatterPlot(filename,observatory='BRW',fieldtype='T',start=3,end=-1,download
     ##### fieldtype = 'Z'  - z-component of magnetic field
     
     # CrowdMag data
-    CMdate,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filename,start,end)
+    CMdate,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM)
     CMmagH = cm.HorizontalMag(CMmagX,CMmagY)
     CMtotalmag = cm.TotalMag(CMmagX,CMmagY,CMmagZ)
     
@@ -169,8 +182,9 @@ def ScatterPlot(filename,observatory='BRW',fieldtype='T',start=3,end=-1,download
     CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
     
     # GeoMag data
-    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filename,observatory,
-                                                                                                  start,end,download)
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
+                                                                                                  startCM,endCM,startGM,endGM,
+                                                                                                  download)
     GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
     
     # Fuse date and time to match CrowdMag date

@@ -16,10 +16,10 @@ import crowdmag as cm
 ### Download relevant Geomag data ###
 #####################################
 
-def DownloadGeoMag(filename,component='H',observatory='BRW'):
+def DownloadGeoMag(filenameCM,component='H',observatory='BRW',startCM=3,endCM=-1):
     
     # Extract start and end times
-    date = cm.ReadCSVCrowdMag(filename)[0]
+    date = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM)[0]
     
     # Time frame
     starttimeYMD = cm.SplitTime(date)[6][0]      # year-month-day
@@ -38,25 +38,27 @@ def DownloadGeoMag(filename,component='H',observatory='BRW'):
     print("Download URL: {}".format(url))
     print("Downloaded file successfully. Observatory: {}, B-field component: {}, Start date: {}, End date: {}."
           .format(observatory,component,starttimeYMD,endtimeYMD))
+    
+    # Find the path of the file
     location = '\data\geomag'
-    path = str(pathlib.Path(__file__).parent.resolve())                   # Find the path of the file 
+    path = str(pathlib.Path(__file__).parent.resolve())                    
     print("Geomag data file location: '{}'.".format(path + location))
 
 ###################
 ### Read in csv ###
 ###################
 
-def ReadCSVGeoMag(filename,start=3,end=-1):
-    data = pd.read_csv(filename, skiprows=18, sep="\s+")
+def ReadCSVGeoMag(filenameGM,startGM=3,endGM=-1):
+    data = pd.read_csv(filenameGM, skiprows=18, sep="\s+")
     
     # Selecting all rows
     rows = np.array(data.loc[:])
     
     # Defining all relevant columns, define start and end points for easier splitting
-    date = rows[:,0][start:end]
-    time = rows[:,1][start:end]
-    doy = rows[:,2][start:end]         # day of year
-    magfield = rows[:,3][start:end]
+    date = rows[:,0][startGM:endGM]
+    time = rows[:,1][startGM:endGM]
+    doy = rows[:,2][startGM:endGM]         # day of year
+    magfield = rows[:,3][startGM:endGM]
    
     # Fuse date and time to match CrowdMag date
     datetime = []
@@ -69,7 +71,7 @@ def ReadCSVGeoMag(filename,start=3,end=-1):
     timeinseconds = cm.SplitTime(datetime)[8] 
     
     # Define location and component of magnetic field
-    for lines in open(filename, 'r'):
+    for lines in open(filenameGM, 'r'):
         if lines.startswith('DATE'):
             location = lines.split(" ")[21]
 
@@ -79,26 +81,33 @@ def ReadCSVGeoMag(filename,start=3,end=-1):
 ### Download and define all components ###
 ##########################################
 
-def DefineAllComponents(filename,observatory='BRW',start=0,end=-1,download=True):
+def DefineAllComponents(filenameCM,observatory='BRW',startCM=3,endCM=-1,startGM=0,endGM=-1,download=True):
     
     # Extract start and end times
-    dateCM = cm.ReadCSVCrowdMag(filename)[0]
+    dateCM = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM)[0]
     starttimeYMD = cm.SplitTime(dateCM)[6][0]      # year-month-day
     endtimeYMD = cm.SplitTime(dateCM)[6][-1]       # year-month-day
     
     if download == True:    # Only download the files if needed
         # Download files from GeoMag
-        DownloadGeoMag(filename,component='X',observatory=observatory)
-        DownloadGeoMag(filename,component='Y',observatory=observatory)
-        DownloadGeoMag(filename,component='Z',observatory=observatory)
-        DownloadGeoMag(filename,component='H',observatory=observatory)
+        DownloadGeoMag(filenameCM,component='X',observatory=observatory,startCM=startCM,endCM=endCM)
+        DownloadGeoMag(filenameCM,component='Y',observatory=observatory,startCM=startCM,endCM=endCM)
+        DownloadGeoMag(filenameCM,component='Z',observatory=observatory,startCM=startCM,endCM=endCM)
+        DownloadGeoMag(filenameCM,component='H',observatory=observatory,startCM=startCM,endCM=endCM)
     
     # Read in files    
     date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'
-                                                          .format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)
-    magY = ReadCSVGeoMag('data/geomag/geomag{}Y_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
-    magZ = ReadCSVGeoMag('data/geomag/geomag{}Z_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
-    magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),start=start,end=end)[3]
+                                                              .format(observatory,starttimeYMD,endtimeYMD),
+                                                              startGM=startGM,endGM=endGM)
+    magY = ReadCSVGeoMag('data/geomag/geomag{}Y_{}_{}.csv'
+                         .format(observatory,starttimeYMD,endtimeYMD),
+                         startGM=startGM,endGM=endGM)[3]
+    magZ = ReadCSVGeoMag('data/geomag/geomag{}Z_{}_{}.csv'
+                         .format(observatory,starttimeYMD,endtimeYMD),
+                         startGM=startGM,endGM=endGM)[3]
+    magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'
+                         .format(observatory,starttimeYMD,endtimeYMD),
+                         startGM=startGM,endGM=endGM)[3]
     
     return date,time,doy,magX,magY,magZ,magH,timeinseconds,location
     
@@ -107,7 +116,7 @@ def DefineAllComponents(filename,observatory='BRW',start=0,end=-1,download=True)
 ### Plot magnetic field versus time ###
 #######################################
 
-def PlotBGeoMag(filename,observatory='BRW',fieldtype='T',start=0,end=-1,download=True):
+def PlotBGeoMag(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,startGM=0,endGM=-1,download=True):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -117,7 +126,7 @@ def PlotBGeoMag(filename,observatory='BRW',fieldtype='T',start=0,end=-1,download
     ##### fieldtype = 'Z'  - z-component of magnetic field
         
     # Date, time, day of year, magnetic field data (x,y,z,h), location
-    date,time,doy,magX,magY,magZ,magH,timeinseconds,location = DefineAllComponents(filename,observatory,start,end,download)
+    date,time,doy,magX,magY,magZ,magH,timeinseconds,location = DefineAllComponents(filenameCM,observatory,startCM,endCM,startGM,endGM,download)
     
     # Time frame
     startdate = date[0]

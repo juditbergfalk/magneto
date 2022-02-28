@@ -12,17 +12,22 @@ from datetime import datetime
 ### Read in csv ###
 ###################
 
-def ReadCSVCrowdMag(filename,start=3,end=-1):
-    data = pd.read_csv(filename)
+def ReadCSVCrowdMag(filenameCM,startCM=3,endCM=-1):
+    data = pd.read_csv(filenameCM)
     
     # Selecting all rows
     rows = np.array(data.loc[:])
     
     # Defining all relevant columns, define start and end points for easier splitting
-    date = rows[:,0][start:end]
-    magX = rows[:,3][start:end]
-    magY = rows[:,4][start:end]
-    magZ = rows[:,5][start:end]
+    date = rows[:,0][startCM:endCM]
+    magX = rows[:,3][startCM:endCM]
+    magY = rows[:,4][startCM:endCM]
+    magZ = rows[:,5][startCM:endCM]
+    
+    # Change to magnitude
+    magX = np.abs(magX)
+    magY = np.abs(magY)
+    magZ = np.abs(magZ)
     
     return date,magX,magY,magZ
 
@@ -77,7 +82,8 @@ def SplitTime(date):
     timeinseconds = []
     for t in range(len(year)):
         dt = datetime(int(year[t]),int(month[t]),int(day[t]),int(hour[t]),int(minute[t]),int(second[t]))
-        dtseconds = (dt-datetime(1970,1,1)).total_seconds()
+        #dtseconds = (dt-datetime(1970,1,1)).total_seconds()
+        dtseconds = (dt-datetime(1,1,1)).total_seconds()
         timeinseconds.append(dtseconds)
     timeinseconds = np.array(timeinseconds)
     
@@ -108,7 +114,7 @@ def TotalMag(x,y,z):
 ### Plot magnetic field versus time ###
 #######################################
 
-def PlotBCrowdMag(filename,fieldtype='T',start=3,end=-1):
+def PlotBCrowdMag(filenameCM,fieldtype='T',startCM=3,endCM=-1):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -118,7 +124,7 @@ def PlotBCrowdMag(filename,fieldtype='T',start=3,end=-1):
     ##### fieldtype = 'Z'  - z-component of magnetic field
         
     # Date and Magnetic field data (x,y,z)
-    date, magX, magY, magZ = ReadCSVCrowdMag(filename,start,end)
+    date, magX, magY, magZ = ReadCSVCrowdMag(filenameCM,startCM,endCM)
     
     # Time frame
     starttime = date[0]
