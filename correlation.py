@@ -9,7 +9,12 @@ import lmfit as lm                                              # Fitting
 ### Overlay Plot CrowdMag vs GeoMag ###
 #######################################
 
-def PlotOverlay2Data(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,startGM=0,endGM=-1,download=True):
+def PlotOverlay2Data(filenameCM,
+                     observatory='BRW',
+                     fieldtype='T',
+                     startCM=3,endCM=-1,startGM=0,endGM=-1,
+                     download=True,
+                     timeshift=0):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -47,12 +52,6 @@ def PlotOverlay2Data(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=
     
     # Start time in seconds
     GMstarttime = cm.SplitTime(GMdatetime)[8][0]
-    
-    # Time shift calculation
-    if GMstarttime > CMstarttime:
-        timeshift = GMstarttime - CMstarttime
-    if CMstarttime > GMstarttime:
-        timeshift = CMstarttime - GMstarttime
     
     # Time frame
     starttime = CMdate[0]
@@ -157,7 +156,12 @@ def FittingPolyfit(data1,data2):
 ### Scatter Plot of CrowdMag and GeoMag data ###
 ################################################
 
-def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,startGM=0,endGM=0,download=True):
+def ScatterPlot(filenameCM,
+                observatory='BRW',
+                fieldtype='T',
+                startCM=3,endCM=-1,startGM=0,endGM=0,
+                download=True,
+                timeshift=0):
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -209,7 +213,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
     endtime = CMdate[-1] 
     
     # Define time interval
-    time = np.linspace(0,np.max(CMtimesec),500)
+    time = np.linspace(0,np.max(CMtimesec),5000)
     
     # Plot
     plt.figure(figsize=(9,9))
@@ -223,7 +227,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
         plt.ylabel("GeoMag - Total Magnetic Field (nT)", fontsize=12)
         r = CorrelationCoefficient(CMtotalmagSpline(time),GMtotalmagSpline(time))
         # Fitting: polyfit
-        x = np.linspace(np.min(CMtotalmagSpline(time)),np.max(CMtotalmagSpline(time)),500)
+        x = np.linspace(np.min(CMtotalmagSpline(time)),np.max(CMtotalmagSpline(time)),5000)
         slope_polyfit,intercept_polyfit = FittingPolyfit(CMtotalmagSpline(time),GMtotalmagSpline(time))
         # Residuals
         residuals = GMtotalmagSpline(time) - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -240,7 +244,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
         plt.ylabel("GeoMag - Magnetic Field - Horizontal (nT)", fontsize=12)
         r = CorrelationCoefficient(CMmagHSpline(time),GMmagHSpline(time))
         # Fitting: polyfit
-        x = np.linspace(np.min(CMmagHSpline(time)),np.max(CMmagHSpline(time)),500)
+        x = np.linspace(np.min(CMmagHSpline(time)),np.max(CMmagHSpline(time)),5000)
         slope_polyfit,intercept_polyfit = FittingPolyfit(CMmagHSpline(time),GMmagHSpline(time))
         # Residuals
         residuals = GMmagHSpline(time) - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -257,7 +261,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
         plt.ylabel("GeoMag - Magnetic Field - X (nT)", fontsize=12)
         r = CorrelationCoefficient(CMmagXSpline(time),GMmagXSpline(time))
         # Fitting: polyfit
-        x = np.linspace(np.min(CMmagXSpline(time)),np.max(CMmagXSpline(time)),500)
+        x = np.linspace(np.min(CMmagXSpline(time)),np.max(CMmagXSpline(time)),5000)
         slope_polyfit,intercept_polyfit = FittingPolyfit(CMmagXSpline(time),GMmagXSpline(time))
         # Residuals
         residuals = GMmagXSpline(time) - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -274,7 +278,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
         plt.ylabel("GeoMag - Magnetic Field - Y (nT)", fontsize=12)
         r = CorrelationCoefficient(CMmagYSpline(time),GMmagYSpline(time))
         # Fitting: polyfit
-        x = np.linspace(np.min(CMmagYSpline(time)),np.max(CMmagYSpline(time)),500)
+        x = np.linspace(np.min(CMmagYSpline(time)),np.max(CMmagYSpline(time)),5000)
         slope_polyfit,intercept_polyfit = FittingPolyfit(CMmagYSpline(time),GMmagYSpline(time))
         # Residuals
         residuals = GMmagYSpline(time) - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -291,7 +295,7 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
         plt.ylabel("GeoMag - Magnetic Field - Z (nT)", fontsize=12)
         r = CorrelationCoefficient(CMmagZSpline(time),GMmagZSpline(time))
         # Fitting: polyfit
-        x = np.linspace(np.min(CMmagZSpline(time)),np.max(CMmagZSpline(time)),500)
+        x = np.linspace(np.min(CMmagZSpline(time)),np.max(CMmagZSpline(time)),5000)
         slope_polyfit,intercept_polyfit = FittingPolyfit(CMmagZSpline(time),GMmagZSpline(time))
         # Residuals
         residuals = GMmagZSpline(time) - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -309,3 +313,23 @@ def ScatterPlot(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
     print("Intercept = {}".format(intercept_polyfit))  
     print("Chi-squared = {}".format(chisquared))
     print("Reduced chi-squared = {}".format(reducedchisquared))
+    
+    # Pearson
+    import pandas as pd
+    import seaborn as sns
+    import scipy.stats as stats
+
+    df = pd.read_csv('synchrony_sample.csv')
+    overall_pearson_r = df.corr().iloc[0,1]
+    print(f"Pandas computed Pearson r: {overall_pearson_r}")
+    # out: Pandas computed Pearson r: 0.2058774513561943
+
+    r, p = stats.pearsonr(df.dropna()['S1_Joy'], df.dropna()['S2_Joy'])
+    print(f"Scipy computed Pearson r: {r} and p-value: {p}")
+    # out: Scipy computed Pearson r: 0.20587745135619354 and p-value: 3.7902989479463397e-51
+
+    # Compute rolling window synchrony
+    f,ax=plt.subplots(figsize=(7,3))
+    df.rolling(window=30,center=True).median().plot(ax=ax)
+    ax.set(xlabel='Time',ylabel='Pearson r')
+    ax.set(title=f"Overall Pearson r = {np.round(overall_pearson_r,2)}");
