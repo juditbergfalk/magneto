@@ -431,4 +431,3 @@ def RWTLCC(filenameCM,
     f, ax = plt.subplots(figsize=(10,10))
     sns.heatmap(rss,cmap='RdBu_r',ax=ax)
     ax.set(title=f'Rolling Windowed Time Lagged Cross Correlation', xlabel='Offset',ylabel='Epochs');
-    plt.legend()
