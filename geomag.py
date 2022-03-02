@@ -150,31 +150,31 @@ def PlotBGeoMag(filenameCM,observatory='BRW',fieldtype='T',startCM=3,endCM=-1,st
     if fieldtype == 'T':
         # Total magnetic field
         totalmag = cm.TotalMag(magX,magY,magZ) 
-        ax.scatter(datetime,totalmag, label="Total Magnetic Field")
+        ax.plot(datetime,totalmag, label="Total Magnetic Field")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(totalmag)-100,np.max(totalmag)+100)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field        
-        ax.scatter(datetime,magH, label="Horizontal Magnetic Field")
+        ax.plot(datetime,magH, label="Horizontal Magnetic Field")
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
         plt.ylim(np.min(magH)-100,np.max(magH)+100)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction        
-        ax.scatter(datetime,magX, label="Magnetic Field - X component")
+        ax.plot(datetime,magX, label="Magnetic Field - X component")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
         plt.ylim(np.min(magX)-100,np.max(magX)+100)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        ax.scatter(datetime,magY, label="Magnetic Field - Y component")
+        ax.plot(datetime,magY, label="Magnetic Field - Y component")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         plt.ylim(np.min(magY)-100,np.max(magY)+100)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        ax.scatter(datetime,magZ, label="Magnetic Field - Z component")
+        ax.plot(datetime,magZ, label="Magnetic Field - Z component")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         plt.ylim(np.min(magZ)-100,np.max(magZ)+100)
  
