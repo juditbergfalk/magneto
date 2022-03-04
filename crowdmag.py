@@ -13,18 +13,33 @@ from datetime import datetime
 ###################
 
 def ReadCSVCrowdMag(filenameCM,startCM=3,endCM=-1):
+    """
+    Read CrowdMag .csv files and return the arrays for date and X,Y,Z component of magnetic field.
+    
+    Parameters
+    ----------
+    filenameCM : string, CrowdMag .csv filename
+    startCM : int, default=3, starting row for trimming
+    endCM : int, default=-1 (last element), ending row for trimming
+
+    Returns
+    ----------
+    date,magX,magY,magZ : numpy arrays
+    """
+    
+    # Read in .csv file
     data = pd.read_csv(filenameCM)
     
     # Selecting all rows
     rows = np.array(data.loc[:])
     
-    # Defining all relevant columns, define start and end points for easier splitting
+    # Defining all relevant columns, define start and end points for easier trimming
     date = rows[:,0][startCM:endCM]
     magX = rows[:,3][startCM:endCM]
     magY = rows[:,4][startCM:endCM]
     magZ = rows[:,5][startCM:endCM]
     
-    # Change to magnitude
+    # Change to magnitude of the magnetic field
     magX = np.abs(magX)
     magY = np.abs(magY)
     magZ = np.abs(magZ)
@@ -36,6 +51,20 @@ def ReadCSVCrowdMag(filenameCM,startCM=3,endCM=-1):
 ######################
 
 def SplitTime(date):
+    """
+    This function splits up the CrowdMag date that is in the format of YYYY-MM-DD hh:mm:ss into 
+    years, months, days, hours, minutes, seconds, year-month-days, hours-minute-seconds, and time in seconds.
+    
+    Parameters
+    ----------
+    date : string, date in the format of YYYY-MM-DD hh:mm:ss
+
+    Returns
+    ----------
+    year, month, day, hour, minute, second : numpy arrays
+    year-month-day, hour-minute-second : strings in numpy arrays
+    time in seconds : numpy arrays
+    """
     
     # Create list for each value
     year,month,day,hour,minute,second,ymd,hms = [],[],[],[],[],[],[],[]
@@ -93,7 +122,18 @@ def SplitTime(date):
 ### Horizontal component of the magnetic field ###
 ##################################################
 
-def HorizontalMag(x,y):
+def HorizontalMag(x,y):    
+    """
+    Calculating the horizontal component of the magnetic field.
+    
+    Parameters
+    ----------
+    x,y : int, X and Y component of the magnetic field
+
+    Returns
+    ----------
+    H : int, Horizontal component of the magnetic field
+    """
     x = x.astype(float)
     y = y.astype(float)
     H = np.sqrt(x**2 + y**2)
@@ -104,6 +144,16 @@ def HorizontalMag(x,y):
 ############################
 
 def TotalMag(x,y,z):
+    """Calculating the total magnetic field.
+    
+    Parameters
+    ----------
+    x,y,z : int, X,Y,Z component of the magnetic field
+
+    Returns
+    ----------
+    total : int, total magnetic field
+    """
     x = x.astype(float)
     y = y.astype(float)
     z = z.astype(float)
@@ -115,6 +165,20 @@ def TotalMag(x,y,z):
 #######################################
 
 def PlotBCrowdMag(filenameCM,fieldtype='T',startCM=3,endCM=-1):
+    """
+    Plotting the CrowdMag data of the chosen component of the magnetic field.
+    
+    Parameters
+    ----------
+    filenameCM : string, CrowdMag .csv filename
+    fieldtype : string, default=total, component of the magnetic field
+    startCM : int, default=3, starting row for trimming
+    endCM : int, default=-1 (last element), ending row for trimming
+
+    Returns
+    ----------
+    Plot of the magnetic field from CrowdMag data.
+    """
     
     # Key:
     ##### fieldtype = 'T'  - total magnetic field
@@ -151,19 +215,19 @@ def PlotBCrowdMag(filenameCM,fieldtype='T',startCM=3,endCM=-1):
         plt.ylim(np.min(horizontalmag[:-3])-500,np.max(horizontalmag[:-3])+500)
     
     if fieldtype == 'X':        
-        # Magnetic field - X direction        
+        # Magnetic field - X component       
         ax.scatter(date,magX, label="Magnetic Field - X component")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
         plt.ylim(np.min(magX[:-3])-500,np.max(magX[:-3])+500)
     
     if fieldtype == 'Y':
-        # Magnetic field - Y direction
+        # Magnetic field - Y component
         ax.plot(date,magY, label="Magnetic Field - Y component")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         plt.ylim(np.min(magY[:-3])-500,np.max(magY[:-3])+500)
         
     if fieldtype == 'Z':
-        # Magnetic field - Z direction
+        # Magnetic field - Z component
         ax.plot(date,magZ, label="Magnetic Field - Z component")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         plt.ylim(np.min(magZ[:-3])-500,np.max(magZ[:-3])+500)
