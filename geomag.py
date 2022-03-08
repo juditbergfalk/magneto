@@ -47,6 +47,7 @@ def DownloadGeoMag(filenameCM,
     
     # Define url where the original file is located
     url = 'https://geomag.usgs.gov/ws/data/?elements={}&endtime={}T{}.000Z&format=iaga2002&id={}&sampling_period=60&starttime={}T{}.000Z&type=adjusted'.format(component,endtimeYMD,endtimeHMS,observatory,starttimeYMD,starttimeHMS)
+    #url = 'https://geomag.usgs.gov/ws/data/?elements={}&endtime={}T{}.000Z&format=iaga2002&id={}&sampling_period=60&starttime={}T{}.000Z&type=variation'.format(component,endtimeYMD,endtimeHMS,observatory,starttimeYMD,starttimeHMS)
     
     # Download the file
     myfile = requests.get(url, allow_redirects=True)
