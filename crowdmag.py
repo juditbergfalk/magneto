@@ -2,11 +2,70 @@
 ##### CROWDMAG DATA #####
 #########################
 
+# Import modules
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import pandas as pd
 from datetime import datetime
+
+#################################
+### Dropdown menu of filelist ###
+#################################
+
+# Import modules
+import os
+from ipywidgets import Dropdown, Box, Layout, Label
+
+# Make a list of filenames from the crowdmag folder
+filelist = os.listdir('./data/crowdmag/')                   
+
+# Create a dropdown menu and label
+form_item_layout = Layout(display='flex', flex_flow='row', justify_content='space-between')
+dropdownmenu = Dropdown(options=filelist, value='crowdmag_2-26-22_iPhone12,1_2022-02-15 170458.csv')
+form_items = [Box([Label(value='CrowdMag file: '),dropdownmenu], layout=form_item_layout)]
+
+# Call function for dropdown menu
+CrowdMagFileList = Box(form_items, layout=Layout(display='flex', flex_flow='column', 
+                                                 border='solid 2px', align_items='stretch', width='50%'))
+
+####################################
+### Calculating rolling averages ###
+####################################
+
+def RollingAverage(array, window_size=10):
+    """
+    Calculate the rolling/moving average of a numpy array, given the window-size.
+    
+    Parameters
+    ----------
+    array : numpy array
+    window_size : int, default=10, window-size for the rolling average
+
+    Returns
+    ----------
+    rollave : numpy array, rolling average of an array
+    """    
+    
+    # Convert array of integers to pandas series
+    numbers_series = pd.Series(array)
+
+    # Get the window of series of observations of specified window size
+    windows = numbers_series.rolling(window_size)
+
+    # Create a series of moving averages of each window
+    moving_averages = windows.mean()
+
+    # Convert pandas series back to list
+    moving_averages_list = moving_averages.tolist()
+
+    # Remove null entries from the list
+    rollave = moving_averages_list[window_size - 1:]
+    
+    # Change the series back to numpy array
+    rollave = np.array(rollave)
+    
+    return rollave
 
 ###################
 ### Read in csv ###
@@ -43,6 +102,16 @@ def ReadCSVCrowdMag(filenameCM,startCM=3,endCM=-1):
     magX = np.abs(magX)
     magY = np.abs(magY)
     magZ = np.abs(magZ)
+    
+    # Calculate rolling average for each component
+    window_size = 10
+    magX = RollingAverage(magX, window_size)
+    magY = RollingAverage(magY, window_size)
+    magZ = RollingAverage(magZ, window_size)
+    
+    # To match the length of date to the magnitudes, we need to parse the date
+    n = len(date) / (window_size - 2)                # Delete exactly window_size - 2 element
+    date = np.delete(date, slice(None, None, int(n))) 
     
     return date,magX,magY,magZ
 

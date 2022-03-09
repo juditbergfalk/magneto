@@ -1,0 +1,28 @@
+ Format                 IAGA-2002                                    |
+ Source of Data         United States Geological Survey (USGS)       |
+ Station Name           Deadhorse                                    |
+ IAGA CODE              DED                                          |
+ Geodetic Latitude      70.355                                       |
+ Geodetic Longitude     211.207                                      |
+ Elevation              10                                           |
+ Reported               XNULNULNUL                                   |
+ Sensor Orientation     HDZF                                         |
+ Digital Sampling       0.01 second                                  |
+ Data Interval Type     1-minute                                     |
+ Data Type              variation                                    |
+ # DECBAS               10755   (Baseline declination value in       |
+ # tenths of minutes East (0-216,000)).                              |
+ # Scalar and Vector 1-minute values are computed from 1 Hz values   |
+ # using an INTERMAGNET gaussian filter centered on the start of the |
+ # minute (00:30-01:30).                                             |
+ # CONDITIONS OF USE: The Conditions of Use for data provided        |
+ # through INTERMAGNET and acknowledgement templates can be found at |
+ # www.intermagnet.org                                               |
+DATE       TIME         DOY     DEDX      DEDNUL    DEDNUL    DEDNUL |
+2021-12-16 14:33:00.000 350      8853.32  99999.00  99999.00  99999.00
+2021-12-16 14:34:00.000 350      8852.21  99999.00  99999.00  99999.00
+2021-12-16 14:35:00.000 350      8848.40  99999.00  99999.00  99999.00
+2021-12-16 14:36:00.000 350      8842.28  99999.00  99999.00  99999.00
+2021-12-16 14:37:00.000 350      8835.73  99999.00  99999.00  99999.00
+2021-12-16 14:38:00.000 350      8832.56  99999.00  99999.00  99999.00
+2021-12-16 14:39:00.000 350      8827.47  99999.00  99999.00  99999.00

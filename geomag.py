@@ -46,8 +46,7 @@ def DownloadGeoMag(filenameCM,
     endtimeHMS = cm.SplitTime(date)[7][-1]       # hour-minute-second
     
     # Define url where the original file is located
-    url = 'https://geomag.usgs.gov/ws/data/?elements={}&endtime={}T{}.000Z&format=iaga2002&id={}&sampling_period=60&starttime={}T{}.000Z&type=adjusted'.format(component,endtimeYMD,endtimeHMS,observatory,starttimeYMD,starttimeHMS)
-    #url = 'https://geomag.usgs.gov/ws/data/?elements={}&endtime={}T{}.000Z&format=iaga2002&id={}&sampling_period=60&starttime={}T{}.000Z&type=variation'.format(component,endtimeYMD,endtimeHMS,observatory,starttimeYMD,starttimeHMS)
+    url = 'https://geomag.usgs.gov/ws/data/?elements={}&endtime={}T{}.000Z&format=iaga2002&id={}&sampling_period=60&starttime={}T{}.000Z&type=variation'.format(component,endtimeYMD,endtimeHMS,observatory,starttimeYMD,starttimeHMS)
     
     # Download the file
     myfile = requests.get(url, allow_redirects=True)
@@ -88,8 +87,8 @@ def ReadCSVGeoMag(filenameGM,
     location : numpy array, observatory code
     """
     
-    # Read in .csv file, skip first 18 rows
-    data = pd.read_csv(filenameGM, skiprows=18, sep="\s+")
+    # Read in .csv file, skip first 19 rows
+    data = pd.read_csv(filenameGM, skiprows=20, sep="\s+")
     
     # Selecting all rows
     rows = np.array(data.loc[:])
