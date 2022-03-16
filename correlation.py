@@ -14,7 +14,7 @@ import warnings
 #######################################
 
 def PlotOverlay2Data(filenameCM,
-                     observatory = 'BRW',
+                     observatory,
                      fieldtype = 'T',
                      startCM = 3, endCM = -1, startGM = 0, endGM = -1,
                      download = True,
@@ -29,7 +29,7 @@ def PlotOverlay2Data(filenameCM,
     Parameters
     ----------
     filenameCM : string, CrowdMag .csv filename
-    observatory : string, default=Barrow Observatory, code for the observatory
+    observatory : list of observatory codes (i.e. ['BRW','DED']
     fieldtype : string, default=total, component of the magnetic field
     startCM : int, default=3, starting row for trimming CrowdMag data
     endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
@@ -73,24 +73,37 @@ def PlotOverlay2Data(filenameCM,
     # Start time in seconds
     CMstarttime = cm.SplitTime(CMdate)[8][0]
     
-    # GeoMag data
-    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
-                                                                                   startCM,endCM,startGM,endGM,
-                                                                                   download,standardizeGM)
-    GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
+    # Empty lists for GeoMag data
+    GMmagXlist,GMmagYlist,GMmagZlist,GMmagHlist,GMtotalmaglist,GMtimeseclist = [],[],[],[],[],[]
     
-    # Fuse date and time to match CrowdMag date
-    GMdatetime = []
-    for t in range(len(GMdate)):
-        dt = GMdate[t] + ' ' + GMtime[t][0:8]
-        GMdatetime.append(dt)
-    GMdatetime = np.array(GMdatetime)
-    
-    # Time in seconds 
-    GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
-    
-    # Start time in seconds
-    GMstarttime = cm.SplitTime(GMdatetime)[8][0]
+    # Download all components of data from each observatory
+    observatory = np.array(observatory)                # Change list to numpy array
+    for o in observatory:
+        # GeoMag data
+        GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,o,
+                                                                                       startCM,endCM,startGM,endGM,
+                                                                                       download,standardizeGM)
+        GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
+        
+        # Fuse date and time to match CrowdMag date
+        GMdatetime = []
+        for t in range(len(GMdate)):
+            dt = GMdate[t] + ' ' + GMtime[t][0:8]
+            GMdatetime.append(dt)
+        GMdatetime = np.array(GMdatetime)
+
+        # Time in seconds 
+        GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
+        # Start time in seconds
+        GMstarttime = cm.SplitTime(GMdatetime)[8][0]
+
+        # Append all to the list
+        GMmagXlist.append(GMmagX)
+        GMmagYlist.append(GMmagY)
+        GMmagZlist.append(GMmagZ)
+        GMmagHlist.append(GMmagH)
+        GMtotalmaglist.append(GMtotalmag)
+        GMtimeseclist.append(GMtimesec)
     
     # Time frame
     starttime = CMdate[0]
@@ -109,7 +122,8 @@ def PlotOverlay2Data(filenameCM,
         else:
             scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
         ax.plot(CMtimesec,scale*CMtotalmag, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.plot(GMtimesec+timeshift,GMtotalmag, label="GeoMag data, Observatory : {}".format(observatory))
+        for o in range(len(observatory)):
+            ax.plot(GMtimeseclist[o]+timeshift,GMtotalmaglist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
     
     if fieldtype == 'H':        
@@ -119,7 +133,8 @@ def PlotOverlay2Data(filenameCM,
         else:
             scale = np.mean(GMmagH)/np.mean(CMmagH)
         ax.plot(CMtimesec,scale*CMmagH, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.plot(GMtimesec+timeshift,GMmagH, label="GeoMag data, Observatory : {}".format(observatory))
+        for o in range(len(observatory)):
+            ax.plot(GMtimeseclist[o]+timeshift,GMmagHlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - H (nT)", fontsize=12)
     
     if fieldtype == 'X':        
@@ -129,7 +144,8 @@ def PlotOverlay2Data(filenameCM,
         else:
             scale = np.mean(GMmagX)/np.mean(CMmagX)
         ax.plot(CMtimesec,scale*CMmagX, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.plot(GMtimesec+timeshift,GMmagX, label="GeoMag data, Observatory : {}".format(observatory))
+        for o in range(len(observatory)):
+            ax.plot(GMtimeseclist[o]+timeshift,GMmagXlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
     
     if fieldtype == 'Y':
@@ -139,7 +155,8 @@ def PlotOverlay2Data(filenameCM,
         else:
             scale = np.mean(GMmagY)/np.mean(CMmagY)
         ax.plot(CMtimesec,scale*CMmagY, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.plot(GMtimesec+timeshift,GMmagY, label="GeoMag data, Observatory : {}".format(observatory))
+        for o in range(len(observatory)):
+            ax.plot(GMtimeseclist[o]+timeshift,GMmagYlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         
     if fieldtype == 'Z':
@@ -149,7 +166,8 @@ def PlotOverlay2Data(filenameCM,
         else:
             scale = np.mean(GMmagZ)/np.mean(CMmagZ)
         ax.plot(CMtimesec,scale*CMmagZ, label="CrowdMag data, scaled by {:.3f}".format(scale))
-        ax.plot(GMtimesec+timeshift,GMmagZ, label="GeoMag data, Observatory : {}".format(observatory))
+        for o in range(len(observatory)):
+            ax.plot(GMtimeseclist[o]+timeshift,GMmagZlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         
     plt.legend()
