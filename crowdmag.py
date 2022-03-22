@@ -6,12 +6,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
+import os
 import pandas as pd
 from datetime import datetime
-import ruptures as rpt
-import os
 from ipywidgets import Dropdown, Box, Layout, Label
-from scipy.special import erfc
+import warnings
+import filterdata as filt
 
 #################################
 ### Dropdown menu of filelist ###
@@ -28,152 +28,6 @@ form_items = [Box([Label(value='CrowdMag file: '),dropdownmenu], layout=form_ite
 # Call function for dropdown menu
 CrowdMagFileList = Box(form_items, layout=Layout(display='flex', flex_flow='column', 
                                                  border='solid 2px', align_items='stretch', width='50%'))
-
-####################################
-### Calculating rolling averages ###
-####################################
-
-def RollingAverage(array, 
-                   window_size = 10):
-    """
-    Calculate the rolling/moving average of a numpy array, given the window-size.
-    
-    Parameters
-    ----------
-    array : numpy array
-    window_size : int, default=10, window-size for the rolling average
-
-    Returns
-    ----------
-    rollave : numpy array, rolling average of an array
-    """    
-    
-    # Convert array of integers to pandas series
-    numbers_series = pd.Series(array)
-
-    # Get the window of series of observations of specified window size
-    windows = numbers_series.rolling(window_size)
-
-    # Create a series of moving averages of each window
-    moving_averages = windows.mean()
-
-    # Convert pandas series back to list
-    moving_averages_list = moving_averages.tolist()
-
-    # Remove null entries from the list
-    rollave = moving_averages_list[window_size - 1:]
-    
-    # Change the series back to numpy array
-    rollave = np.array(rollave)
-    
-    return rollave
-
-################
-### Outliers ###
-################
-
-def Outliers(signal):
-    """
-    Find outliers. Points need to be evaluated using Chauvenet's criterion.
-    
-    Parameters
-    ----------
-    signal : numpy array
-
-    Returns
-    ----------
-    signal without outliers : numpy array    
-    
-    """
-    
-    # Find outliers
-    meansignal = np.mean(signal)                      # Mean of signal
-    stdsignal = np.std(signal)                        # Standard deviation of signal
-    chauvenet_crit = 1.0/(2*len(signal))              # Chauvenet's criterion
-    residuals = abs(signal - meansignal) / stdsignal  # Distance of a value to mean in stdv's
-    prob = erfc(residuals)                            # Area normal distribution    
-    outliers = prob < chauvenet_crit                  # List of boolean. True means there is an outlier
-    
-    # Replace outlier with mean value of the signal
-    for i in range(len(signal)):
-        if outliers[i]:
-            signal[i] = meansignal 
-            
-    return signal
-
-##########################
-### Standardize signal ###
-##########################
-
-def Standardize(signal):
-    """
-    Standardize (Z-score normalization) time-series signal.
-    
-    Parameters
-    ----------
-    signal : numpy array
-
-    Returns
-    ----------
-    standardized signal : numpy array    
-    
-    """
-    
-    meansignal = np.mean(signal)                                   # Calculate the mean of signal
-    stdsignal = np.std(signal)                                     # Calculate the standard deviation of signal
-    standardized_signal = (signal - meansignal) / stdsignal        # Standardize signal (Z-score normalization)
-    
-    return standardized_signal
-
-################
-### DC Shift ###
-################
-
-def DC_Shift(mag, 
-             bkps = 10):
-    """
-    Calculate change points (breaking points) in a signal, break it up to segments, 
-    standardize each segment and return new array of DC shifted standardized array.
-    
-    Parameters
-    ----------
-    mag : numpy array, magnetic field strength measurements
-    bkps : int, default=10, max number of predicted breaking points
-
-    Returns
-    ----------
-    standardized and DC shifted magnetic field strength data : numpy array    
-    
-    """
-    
-    # Change point detection
-    model = "l2"  # "l1", "rbf", "linear", "normal", "ar"      # Segment model
-    algo = rpt.Window(width = 40, model = model).fit(mag)      # Window sliding method to find breaking points
-    my_bkps = algo.predict(n_bkps = bkps - 1)                  # Predict the location of breaking points in the signal
-    print("Breaking points = {}".format(my_bkps))   
-
-    # Define segments using the breaking points
-    start = 0                                                  # Starting point of the data set
-    segmented_list = []                                        # Empty list for the segmented lists
-    for i in range(len(mag)):                                  # Loop through the magnetic field strength measurements
-        for p in my_bkps:                                      # But also loop through the breaking point list
-            if i == p:                                         # If the index equals the breaking point
-                segment = mag[start:p]                         # Define a new segment from start point to the breaking point
-                segmented_list.append(segment)                 # Append this new segment to the segmented list
-                start = p                                      # Redefine the starting point
-    last_segment = mag[start:]                                 # Define last segment
-    segmented_list.append(last_segment)                        # Append last segment to the segmented list
-    segmented_list = np.array(segmented_list,dtype=object)     # Convert list to numpy array
-    
-    # Standardize each segment
-    norm_mag = []                                              # Empty list for the normalized magnitude
-    for s in segmented_list:                                   # Loop through each segment
-        stand_s = Standardize(s)                               # Standardize each segment (Z-score normalization)
-        norm_mag.append(stand_s)                               # Append standardized signal to the normalized magnitude list
-    norm_mag = np.array(norm_mag,dtype=object)                 # Convert list to numpy array
-    norm_mag = np.concatenate(norm_mag,axis=0)                 # Concatenate the whole sequence of arrays
-    
-    return norm_mag
 
 ############################
 ### Total magnetic field ###
@@ -224,9 +78,10 @@ def HorizontalMag(x,y):
 def ReadCSVCrowdMag(filenameCM,
                     startCM = 3, endCM = -1,
                     rollingave = False,
+                    window_size = 10,
                     dc_shift = False,
-                    standardize = False,
-                    bkps = 10):
+                    bkps = None,
+                    filter_signal = 'raw'):
     """
     Read CrowdMag .csv files and return the arrays for date and X,Y,Z component of magnetic field.
     
@@ -235,11 +90,16 @@ def ReadCSVCrowdMag(filenameCM,
     filenameCM : string, CrowdMag .csv filename
     startCM : int, default=3, starting row for trimming
     endCM : int, default=-1 (last element), ending row for trimming
-    rollingave : boolean, do you want to calculate the rolling average?
-    dc_shift : boolean, does the data need to be DC shifted? 
-               Note: DC shift includes standardization so if this is True, standarize cannot be True!
-    standardize : boolean, does the data need to be standardized (Z-score normalization)?
-    bkps : int, default=10, max number of predicted breaking points
+    rollingave : boolean, if True: calculates the rolling average
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -256,7 +116,7 @@ def ReadCSVCrowdMag(filenameCM,
     date = rows[:,0][startCM:endCM]
     magX = rows[:,3][startCM:endCM]
     magY = rows[:,4][startCM:endCM]
-    magZ = rows[:,5][startCM:endCM]
+    magZ = rows[:,5][startCM:endCM]    
     
     # Change to magnitude of the magnetic field
     #magX = abs(magX)
@@ -269,39 +129,108 @@ def ReadCSVCrowdMag(filenameCM,
     # Horizontal magnetic field
     magH = HorizontalMag(magX,magY) 
     
+    # DC shift
+    if dc_shift:
+        totalmag = filt.DC_Shift(totalmag,bkps)
+        magH = filt.DC_Shift(magH,bkps)
+        magX = filt.DC_Shift(magX,bkps)
+        magY = filt.DC_Shift(magY,bkps)
+        magZ = filt.DC_Shift(magZ,bkps)        
+    
     # Rolling average
     if rollingave:
         # Calculate rolling average for each component
-        window_size = 10 
-        totalmag = RollingAverage(totalmag,window_size)
-        magH = RollingAverage(magH,window_size)
-        magX = RollingAverage(magX,window_size)
-        magY = RollingAverage(magY,window_size)
-        magZ = RollingAverage(magZ,window_size)
+        totalmag = filt.RollingAverage(totalmag,window_size)
+        magH = filt.RollingAverage(magH,window_size)
+        magX = filt.RollingAverage(magX,window_size)
+        magY = filt.RollingAverage(magY,window_size)
+        magZ = filt.RollingAverage(magZ,window_size)
     
         # To match the length of date to the magnitudes, we need to parse the date
         n = (len(date)-(window_size - 1))/(window_size - 1)
-        date = np.delete(date, np.arange(int(len(date)/(window_size-1)), date.size, int(n)))     
-    
-    # DC shift
-    if dc_shift:
-        totalmag = DC_Shift(totalmag,bkps)
-        magH = DC_Shift(magH,bkps)
-        magX = DC_Shift(magX,bkps)
-        magY = DC_Shift(magY,bkps)
-        magZ = DC_Shift(magZ,bkps)
+        date = np.delete(date, np.arange(int(len(date)/(window_size-1)), date.size, int(n))) 
         
-    # If not DC shifted, then standardize (Z-score normalization)    
-    if standardize:
-        totalmag = Standardize(totalmag)
-        magH = Standardize(magH)
-        magX = Standardize(magX)
-        magY = Standardize(magY)
-        magZ = Standardize(magZ)
+    # Filter signal: None
+    if filter_signal == 'raw':
+        pass
+    
+    # Filter signal: digital filter forward and backward to a signal
+    if filter_signal == 'filtfilt':
+        
+        cutoff = 0.1
+        fs = 30              # sampling frequency of the digital system
+        order = 5            # order of the filter
+        btype = 'highpass'   # type of filter
+        
+        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
+        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
+        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
+        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
+        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
+    
+    # Filter signal: Savitzky-Golay filter
+    if filter_signal == 'savgol':
+        
+        wl = 99              # window-length
+        polyorder = 5        # order of the polynomial used to fit the samples
+        
+        totalmag = filt.Filter_savgol(totalmag, wl, polyorder)
+        magH = filt.Filter_savgol(magH, wl, polyorder)
+        magX = filt.Filter_savgol(magX, wl, polyorder)
+        magY = filt.Filter_savgol(magY, wl, polyorder)
+        magZ = filt.Filter_savgol(magZ, wl, polyorder)
+    
+    # Filter signal: FFT high freq filter
+    if filter_signal == 'ffthighfreq':
+        
+        timestep = 70              # time step
+        
+        totalmag = filt.Filter_ffthighfreq(totalmag, timestep)
+        magH = filt.Filter_ffthighfreq(magH, timestep)
+        magX = filt.Filter_ffthighfreq(magX, timestep)
+        magY = filt.Filter_ffthighfreq(magY, timestep)
+        magZ = filt.Filter_ffthighfreq(magZ, timestep)
+    
+    # Filter signal: FFT bandpass filter
+    if filter_signal == 'fftbandpass':
+        
+        timestep = 70              # time step
+        low = 0.0002               # lower limit of frequencies
+        high = 0.000001            # upper limit of frequencies
+        
+        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
+        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
+        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
+        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
+        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
+    
+    # Filter signal: Combo: Digital filter forward and backward to a signal and FFT bandpass filter
+    if filter_signal == 'combo':
+        
+        cutoff = 0.1
+        fs = 30              # sampling frequency of the digital system
+        order = 5            # order of the filter
+        btype = 'highpass'   # type of filter
+        
+        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
+        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
+        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
+        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
+        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
+        
+        timestep = 70              # time step
+        low = 0.0002               # lower limit of frequencies
+        high = 0.000001            # upper limit of frequencies
+        
+        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
+        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
+        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
+        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
+        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
         
     # Remove outliers
-    totalmag = Outliers(totalmag)
-    magH = Outliers(magH)
+    #totalmag = filt.Outliers(totalmag)
+    #magH = filt.Outliers(magH)
     
     return date, totalmag, magH, magX, magY, magZ
 
@@ -370,7 +299,6 @@ def SplitTime(date):
     timeinseconds = []
     for t in range(len(year)):
         dt = datetime(int(year[t]),int(month[t]),int(day[t]),int(hour[t]),int(minute[t]),int(second[t]))
-        #dtseconds = (dt-datetime(1970,1,1)).total_seconds()
         dtseconds = (dt-datetime(1,1,1)).total_seconds()
         timeinseconds.append(dtseconds)
     timeinseconds = np.array(timeinseconds)
@@ -382,12 +310,13 @@ def SplitTime(date):
 #######################################
 
 def PlotBCrowdMag(filenameCM,
-                  fieldtype = 'T',
+                  fieldtype = 'F',
                   startCM = 3, endCM = -1,
                   rollingave = False,
+                  window_size = 10,
                   dc_shift = False,
-                  standardize = False,
-                  bkps = 10):
+                  bkps = None,
+                  filter_signal = 'raw'):
     """
     Plotting the CrowdMag data of the chosen component of the magnetic field.
     
@@ -397,10 +326,16 @@ def PlotBCrowdMag(filenameCM,
     fieldtype : string, default=total, component of the magnetic field
     startCM : int, default=3, starting row for trimming
     endCM : int, default=-1 (last element), ending row for trimming
-    rollingave : boolean, do you want to calculate the rolling average?
-    dc_shift : boolean, does the data need to be DC shifted (note: this includes standardization!)?
-    standardize : boolean, does the data need to be standardized (Z-score normalization)?
-    bkps : int, default=10, max number of predicted breaking points
+    rollingave : boolean, if True: calculates the rolling average
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -408,14 +343,21 @@ def PlotBCrowdMag(filenameCM,
     """
     
     # Key:
-    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'F'  - total magnetic field
     ##### fieldtype = 'H'  - horizontal component of field
     ##### fieldtype = 'X'  - x-component of magnetic field
     ##### fieldtype = 'Y'  - y-component of magnetic field
     ##### fieldtype = 'Z'  - z-component of magnetic field
-        
+    
+    # Ignore warnings
+    warnings.simplefilter(action='ignore', category=RuntimeWarning)    
+    warnings.simplefilter(action='ignore', category=UserWarning)  
+    
     # Date and Magnetic field data (x,y,z)
-    date, totalmag, magH, magX, magY, magZ = ReadCSVCrowdMag(filenameCM,startCM,endCM,rollingave,dc_shift,standardize,bkps)
+    date, totalmag, magH, magX, magY, magZ = ReadCSVCrowdMag(filenameCM,startCM,endCM,
+                                                             rollingave,window_size,
+                                                             dc_shift,bkps,
+                                                             filter_signal)
     
     # Time frame
     starttime = date[0]
@@ -427,40 +369,30 @@ def PlotBCrowdMag(filenameCM,
     plt.title("CrowdMag : {} - {}".format(starttime,endtime), fontsize=16)
     plt.xlabel("UTC time", fontsize=12)
     
-    if fieldtype == 'T':
+    if fieldtype == 'F':
         # Total magnetic field 
         ax.plot(date,totalmag, label="Total Magnetic Field")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)    
-        limit = np.max(totalmag[:-3])/50                                   # Set limit for axes
-        plt.ylim(np.min(totalmag[:-3])-limit,np.max(totalmag[:-3])+limit)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field       
         ax.plot(date,magH, label="Horizontal Magnetic Field")
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
-        limit = np.max(magH[:-3])/50                                       # Set limit for axes
-        plt.ylim(np.min(magH[:-3])-limit,np.max(magH[:-3])+limit)
-    
+
     if fieldtype == 'X':        
         # Magnetic field - X component       
         ax.plot(date,magX, label="Magnetic Field - X component")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
-        limit = np.max(magX[:-3])/50                                       # Set limit for axes
-        plt.ylim(np.min(magX[:-3])-limit,np.max(magX[:-3])+limit)
     
     if fieldtype == 'Y':
         # Magnetic field - Y component
         ax.plot(date,magY, label="Magnetic Field - Y component")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
-        limit = np.max(magY[:-3])/50                                       # Set limit for axes
-        plt.ylim(np.min(magY[:-3])-limit,np.max(magY[:-3])+limit)
         
     if fieldtype == 'Z':
         # Magnetic field - Z component
         ax.plot(date,magZ, label="Magnetic Field - Z component")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
-        limit = np.max(magZ[:-3])/50                                       # Set limit for axes
-        plt.ylim(np.min(magZ[:-3])-limit,np.max(magZ[:-3])+limit)
  
     # Reduce the number of ticks for the x-axis
     xticks = ticker.MaxNLocator(10)
@@ -468,3 +400,42 @@ def PlotBCrowdMag(filenameCM,
     plt.xticks(fontsize = 8)
     plt.legend()
     plt.show()
+    
+################################
+### Find index of given date ###
+################################
+
+def FindDate(filenameCM,startCM,endCM,finddate):
+    """
+    Finding the index (or row) of the given date for trimming the data.
+    
+    Parameters
+    ----------
+    filenameCM : string, CrowdMag .csv filename
+    startCM : int, default=3, starting row for trimming
+    endCM : int, default=-1 (last element), ending row for trimming
+    finddate : string, find the row this date starts on
+
+    Returns
+    ----------
+    Prints out the row number.
+    """
+    
+    # Change date to string
+    finddate = str(finddate)        
+    
+    # Define all dates in the CrowdMag data
+    date = ReadCSVCrowdMag(filenameCM,startCM,endCM)[0]
+    
+    # Define start and end date
+    for d in range(len(date)):
+        if date[d][:10] == finddate:
+            index = d
+            break
+        else: 
+            index = None
+    if index == None:
+        print("The date {} is not included in the dataset.".format(finddate))
+    else: 
+        print("The date {} starts on row {}.".format(finddate,index))
+    

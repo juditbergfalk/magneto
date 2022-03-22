@@ -15,14 +15,15 @@ import warnings
 
 def PlotOverlay2Data(filenameCM,
                      observatory,
-                     fieldtype = 'T',
+                     fieldtype = 'F',
                      startCM = 3, endCM = -1, startGM = 0, endGM = -1,
                      download = True,
                      timeshift = 0,
                      rollingave = False,
-                     dc_shift = False,
-                     standardizeCM = False, standardizeGM = False,
-                     bkps = 10):
+                     window_size = 10,
+                     dc_shift = True,
+                     bkps = 4,
+                     filter_signal = 'raw'):
     """
     Overlaying the two CrowdMag and GeoMag data sets of the chosen component of the magnetic field with an adjustable timeshift. 
     
@@ -35,14 +36,18 @@ def PlotOverlay2Data(filenameCM,
     endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
     startGM : int, default=0, starting row for triming GeoMag data
     endGM : int, default=-1 (last element), ending row for trimming GeoMag data
-    download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
-                or is it already downloaded (False)
+    download : boolean, if True: download the .csv file from GeoMag
     timeshift : int, default=0, shifting the CrowdMag dataset to the right, timeshift in seconds
-    rollingave : boolean, do you want to calculate the rolling average for the CrowdMag data?
-    dc_shift : boolean, does the CrowdMag data need to be DC shifted (note: this includes standardization!)?
-    standardizeCM : boolean, does the CrowdMag data need to be standardized (Z-score normalization)?
-    standardizeGM : boolean, does the GeoMag data need to be standardized (Z-score normalization)?
-    bkps : int, default=10, max number of predicted breaking points
+    rollingave : boolean, if True: calculates the rolling average for the CrowdMag data
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: both CrowdMag and GeoMag data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -50,22 +55,26 @@ def PlotOverlay2Data(filenameCM,
     """
     
     # Key:
-    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'F'  - total magnetic field
     ##### fieldtype = 'H'  - horizontal component of field
     ##### fieldtype = 'X'  - x-component of magnetic field
     ##### fieldtype = 'Y'  - y-component of magnetic field
     ##### fieldtype = 'Z'  - z-component of magnetic field
     
-    # Make sure that standardization doesn't happen twice
-    if dc_shift:
-        standardizeCM = False    
+    # Ignore warnings
+    warnings.simplefilter(action='ignore', category=RuntimeWarning)    
+    warnings.simplefilter(action='ignore', category=UserWarning)
+    
+    observatory = [observatory]
     
     # Change timeshift to seconds
     timeshift = int(timeshift * 60)
     
     # CrowdMag data
-    CMdate,Cmtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
-                                                                       rollingave,dc_shift,standardizeCM,bkps)
+    CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
+                                                                       rollingave,window_size,
+                                                                       dc_shift,bkps,
+                                                                       filter_signal)
     
     # Time in seconds 
     CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
@@ -80,10 +89,11 @@ def PlotOverlay2Data(filenameCM,
     observatory = np.array(observatory)                # Change list to numpy array
     for o in observatory:
         # GeoMag data
-        GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,o,
+        GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,o,
                                                                                        startCM,endCM,startGM,endGM,
-                                                                                       download,standardizeGM)
-        GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
+                                                                                       download,
+                                                                                       dc_shift,
+                                                                                       filter_signal)
         
         # Fuse date and time to match CrowdMag date
         GMdatetime = []
@@ -115,57 +125,37 @@ def PlotOverlay2Data(filenameCM,
     plt.title("CrowdMag vs GeoMag : {} - {}".format(starttime,endtime), fontsize=16)
     plt.xlabel("Time (seconds)", fontsize=12)
     
-    if fieldtype == 'T':
+    if fieldtype == 'F':
         # Total magnetic field
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
-        ax.plot(CMtimesec,scale*CMtotalmag, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.plot(CMtimesec,CMtotalmag, label="CrowdMag data")
         for o in range(len(observatory)):
             ax.plot(GMtimeseclist[o]+timeshift,GMtotalmaglist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagH)/np.mean(CMmagH)
-        ax.plot(CMtimesec,scale*CMmagH, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.plot(CMtimesec,CMmagH, label="CrowdMag data")
         for o in range(len(observatory)):
             ax.plot(GMtimeseclist[o]+timeshift,GMmagHlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - H (nT)", fontsize=12)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagX)/np.mean(CMmagX)
-        ax.plot(CMtimesec,scale*CMmagX, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.plot(CMtimesec,CMmagX, label="CrowdMag data")
         for o in range(len(observatory)):
             ax.plot(GMtimeseclist[o]+timeshift,GMmagXlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagY)/np.mean(CMmagY)
-        ax.plot(CMtimesec,scale*CMmagY, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.plot(CMtimesec,CMmagY, label="CrowdMag data")
         for o in range(len(observatory)):
             ax.plot(GMtimeseclist[o]+timeshift,GMmagYlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagZ)/np.mean(CMmagZ)
-        ax.plot(CMtimesec,scale*CMmagZ, label="CrowdMag data, scaled by {:.3f}".format(scale))
+        ax.plot(CMtimesec,CMmagZ, label="CrowdMag data")
         for o in range(len(observatory)):
             ax.plot(GMtimeseclist[o]+timeshift,GMmagZlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
@@ -282,14 +272,15 @@ def FittingPolyfit(data1,data2):
 
 def ScatterPlot(filenameCM,
                 observatory = 'BRW',
-                fieldtype = 'T',
+                fieldtype = 'F',
                 startCM = 3, endCM = -1, startGM = 0, endGM = -1,
                 download = True,
                 timeshift = 0,
                 rollingave = False,
-                dc_shift = False,
-                standardizeCM = False, standardizeGM = False,
-                bkps = 10):
+                window_size = 10,
+                dc_shift = True,
+                bkps = 4,
+                filter_signal = 'raw'):
     """
     Scatter plot of the CrowdMag and GeoMag datasets after interpolating and defining new sampling times, 
     then fitting a linear curve and calculating fitting parameters. 
@@ -306,11 +297,16 @@ def ScatterPlot(filenameCM,
     download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
                 or is it already downloaded (False)
     timeshift : int, default=0, shifting the CrowdMag dataset to the right
-    rollingave : boolean, do you want to calculate the rolling average for the CrowdMag data?
-    dc_shift : boolean, does the CrowdMag data need to be DC shifted (note: this includes standardization!)?
-    standardizeCM : boolean, does the CrowdMag data need to be standardized (Z-score normalization)?
-    standardizeGM : boolean, does the GeoMag data need to be standardized (Z-score normalization)?
-    bkps : int, default=10, max number of predicted breaking points
+    rollingave : boolean, if True: calculates the rolling average for the CrowdMag data
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: both CrowdMag and GeoMag data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points    
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -319,15 +315,11 @@ def ScatterPlot(filenameCM,
     """
     
     # Key:
-    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'F'  - total magnetic field
     ##### fieldtype = 'H'  - horizontal component of field
     ##### fieldtype = 'X'  - x-component of magnetic field
     ##### fieldtype = 'Y'  - y-component of magnetic field
     ##### fieldtype = 'Z'  - z-component of magnetic field
-    
-    # Make sure that standardization doesn't happen twice
-    if dc_shift:
-        standardizeCM = False
     
     # Ignore warnings
     warnings.simplefilter(action='ignore', category=RuntimeWarning)      
@@ -336,14 +328,16 @@ def ScatterPlot(filenameCM,
     timeshift = int(timeshift * 60/70)     # CrowdMag is 70-sec, GeoMag is 60-sec intervals
         
     # CrowdMag data
-    CMdate,Cmtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
-                                                                       rollingave,dc_shift,standardizeCM,bkps)
+    CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
+                                                                       rollingave,window_size,
+                                                                       dc_shift,bkps,
+                                                                       filter_signal)
     
     # Trim data
     if timeshift != 0:
         CMdate = CMdate[timeshift:]
-        CMtotalmag = CMmagX[timeshift:]
-        CMmagH = CMmagX[timeshift:]
+        CMtotalmag = CMtotalmag[timeshift:]
+        CMmagH = CMmagH[timeshift:]
         CMmagX = CMmagX[timeshift:]
         CMmagY = CMmagY[timeshift:]
         CMmagZ = CMmagZ[timeshift:]    
@@ -351,17 +345,16 @@ def ScatterPlot(filenameCM,
     # Time in seconds 
     CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
     
-    # Spline CrowdMag data
-    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
-    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
-    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
-    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
-    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
-    
     # GeoMag data
-    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
-                                                                                   startCM,endCM,startGM,endGM,
-                                                                                   download,standardizeGM)
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,
+                                                                                                             observatory,
+                                                                                                             startCM,
+                                                                                                             endCM,
+                                                                                                             startGM,
+                                                                                                             endGM,
+                                                                                                             download,
+                                                                                                             dc_shift,
+                                                                                                             filter_signal)
     
     # Trim data
     if timeshift != 0:
@@ -372,11 +365,9 @@ def ScatterPlot(filenameCM,
         GMmagY = GMmagY[0:-timeshift]
         GMmagZ = GMmagZ[0:-timeshift]
         GMmagH = GMmagH[0:-timeshift]
+        GMtotalmag = GMtotalmag[0:-timeshift]
         GMtimesec = GMtimesec[0:-timeshift]
         GMlocation = GMlocation[0:-timeshift]    
-    
-    # Calculate total magnetic field
-    GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
     
     # Fuse date and time to match CrowdMag date
     GMdatetime = []
@@ -387,6 +378,13 @@ def ScatterPlot(filenameCM,
     
     # Time in seconds 
     GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
+        
+    # Spline CrowdMag data
+    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
+    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
+    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
+    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
+    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
     
     # Spline GeoMag data
     GMtotalmagSpline = lambda t: SplineData(t,GMtimesec,GMtotalmag)
@@ -407,64 +405,44 @@ def ScatterPlot(filenameCM,
     plt.suptitle("CrowdMag vs GeoMag Scatter Plot", fontsize=12)
     plt.title("{} - {}".format(starttime,endtime), fontsize=12)
     
-    if fieldtype == 'T':
+    if fieldtype == 'F':
         # Total magnetic field
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
-        plt.scatter(scale*CMtotalmagSpline(time),GMtotalmagSpline(time))
-        plt.xlabel("CrowdMag - Total Magnetic Field (nT), scaled by {:.3f}".format(scale), fontsize=12)
+        plt.scatter(CMtotalmagSpline(time),GMtotalmagSpline(time))
+        plt.xlabel("CrowdMag - Total Magnetic Field (nT)", fontsize=12)
         plt.ylabel("GeoMag - Total Magnetic Field (nT)", fontsize=12)
-        cmdata = scale*CMtotalmagSpline(time)
+        cmdata = CMtotalmagSpline(time)
         gmdata = GMtotalmagSpline(time)
         
     if fieldtype == 'H':        
         # Horizontal magnetic field
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagH)/np.mean(CMmagH) 
         plt.scatter(scale*CMmagHSpline(time),GMmagHSpline(time))
-        plt.xlabel("CrowdMag - Magnetic Field - Horizontal (nT), scaled by {:.3f}".format(scale), fontsize=12)
+        plt.xlabel("CrowdMag - Magnetic Field - Horizontal (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Horizontal (nT)", fontsize=12)
-        cmdata = scale*CMmagHSpline(time)
+        cmdata = CMmagHSpline(time)
         gmdata = GMmagHSpline(time) 
     
     if fieldtype == 'X':        
         # Magnetic field - X direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagX)/np.mean(CMmagX) 
         plt.scatter(scale*CMmagXSpline(time),GMmagXSpline(time))
-        plt.xlabel("CrowdMag - Magnetic Field - X (nT), scaled by {:.3f}".format(scale), fontsize=12)
+        plt.xlabel("CrowdMag - Magnetic Field - X (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - X (nT)", fontsize=12)
-        cmdata = scale*CMmagXSpline(time)
+        cmdata = CMmagXSpline(time)
         gmdata = GMmagXSpline(time)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagY)/np.mean(CMmagY) 
         plt.scatter(scale*CMmagYSpline(time),GMmagYSpline(time))
-        plt.xlabel("CrowdMag - Magnetic Field - Y (nT), scaled by {:.3f}".format(scale), fontsize=12)
+        plt.xlabel("CrowdMag - Magnetic Field - Y (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Y (nT)", fontsize=12)
-        cmdata = scale*CMmagYSpline(time)
+        cmdata = CMmagYSpline(time)
         gmdata = GMmagYSpline(time)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        if standardizeGM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagZ)/np.mean(CMmagZ) 
         plt.scatter(scale*CMmagZSpline(time),GMmagZSpline(time))
-        plt.xlabel("CrowdMag - Magnetic Field - Z (nT), scaled by {:.3f}".format(scale), fontsize=12)
+        plt.xlabel("CrowdMag - Magnetic Field - Z (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Z (nT)", fontsize=12)
-        cmdata = scale*CMmagZSpline(time)
+        cmdata = CMmagZSpline(time)
         gmdata = GMmagZSpline(time)
     
     # Calclate correlation coefficient
@@ -475,8 +453,8 @@ def ScatterPlot(filenameCM,
     # Residuals
     residuals = gmdata - LinearFunction(x,slope_polyfit,intercept_polyfit)
     # Chi squared and reduced chi squared
-    std = np.std(gmdata)
-    chisquared = np.sum(residuals**2/std**2)   # not sure about the errors!!
+    stdev = np.std(gmdata)
+    chisquared = np.sum(residuals**2/stdev**2)   # not sure about the errors!!
     # Degrees of freedom = number of data points - number of fitting parameters
     dof = len(CMdate) - 2    
     reducedchisquared = chisquared / dof
@@ -530,14 +508,15 @@ def TLCC(x,y, lag=0):
 
 def RWTLCC(filenameCM,
            observatory = 'BRW',
-           fieldtype = 'T',
+           fieldtype = 'F',
            startCM = 3, endCM = -1, startGM = 0, endGM = -1,
            download = True,
-           n = 500, windowsize = 300, step = 100,
+           n = 500, w = 300, step = 100,
            rollingave = False,
-           dc_shift = False,
-           standardizeCM = False, standardizeGM = False,
-           bkps = 10): 
+           window_size = 10,
+           dc_shift = True,
+           bkps = 4,
+           filter_signal = 'raw'):
     """
     A heat-map of the rolling window time-lagged cross correlation (RWTLCC) for the CrowdMag and GeoMag data sets. 
     
@@ -553,13 +532,18 @@ def RWTLCC(filenameCM,
     download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
                 or is it already downloaded (False)
     n : int, default=500, time-lag range is -n to n+1
-    windowsize : int, default=300, chunks of the data set that is calculated at a time, number of samples
+    w : int, default=300, chunks of the data set that is calculated at a time, number of samples
     step : int, default=100, stepsize of the loop
-    rollingave : boolean, do you want to calculate the rolling average for the CrowdMag data?
-    dc_shift : boolean, does the CrowdMag data need to be DC shifted (note: this includes standardization!)?
-    standardizeCM : boolean, does the CrowdMag data need to be standardized (Z-score normalization)?
-    standardizeGM : boolean, does the GeoMag data need to be standardized (Z-score normalization)?
-    bkps : int, default=10, max number of predicted breaking points
+    rollingave : boolean, if True: calculates the rolling average for the CrowdMag data
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: both CrowdMag and GeoMag data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points    
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -567,38 +551,34 @@ def RWTLCC(filenameCM,
     """
     
     # Key:
-    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'F'  - total magnetic field
     ##### fieldtype = 'H'  - horizontal component of field
     ##### fieldtype = 'X'  - x-component of magnetic field
     ##### fieldtype = 'Y'  - y-component of magnetic field
     ##### fieldtype = 'Z'  - z-component of magnetic field
     
-    # Make sure that standardization doesn't happen twice
-    if dc_shift:
-        standardizeCM = False
-    
     # Ignore warnings
     warnings.simplefilter(action='ignore', category=RuntimeWarning)      
     
     # CrowdMag data
-    CMdate,Cmtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
-                                                                       rollingave,dc_shift,standardizeCM,bkps)
+    CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
+                                                                       rollingave,window_size,
+                                                                       dc_shift,bkps,
+                                                                       filter_signal)
     
     # Time in seconds 
     CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
     
-    # Spline Crowdmag data
-    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
-    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
-    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
-    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
-    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
-    
     # GeoMag data
-    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
-                                                                                   startCM,endCM,startGM,endGM,
-                                                                                   download,standardizeGM)
-    GMtotalmag = cm.TotalMag(GMmagX,GMmagY,GMmagZ)
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,
+                                                                                                             observatory,
+                                                                                                             startCM,
+                                                                                                             endCM,
+                                                                                                             startGM,
+                                                                                                             endGM,
+                                                                                                             download,
+                                                                                                             dc_shift,
+                                                                                                             filter_signal)
     
     # Fuse date and time to match CrowdMag date
     GMdatetime = []
@@ -609,13 +589,20 @@ def RWTLCC(filenameCM,
     
     # Time in seconds 
     GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
+        
+    # Spline CrowdMag data
+    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
+    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
+    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
+    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
+    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
     
-    # Spline Crowdmag data
+    # Spline GeoMag data
     GMtotalmagSpline = lambda t: SplineData(t,GMtimesec,GMtotalmag)
     GMmagHSpline = lambda t: SplineData(t,GMtimesec,GMmagH)
     GMmagXSpline = lambda t: SplineData(t,GMtimesec,GMmagX)
     GMmagYSpline = lambda t: SplineData(t,GMtimesec,GMmagY)
-    GMmagZSpline = lambda t: SplineData(t,GMtimesec,GMmagZ)
+    GMmagZSpline = lambda t: SplineData(t,GMtimesec,GMmagZ)    
     
     # Time frame
     starttime = CMdate[0]
@@ -625,50 +612,30 @@ def RWTLCC(filenameCM,
     time = np.linspace(0,np.max(GMtimesec),len(GMtotalmag))
     
     # Plot    
-    if fieldtype == 'T':
+    if fieldtype == 'F':
         # Total magnetic field
-        if standardizeCM:
-            scale = 1
-        else:
-            scale = np.mean(GMtotalmag)/np.mean(CMtotalmag)
-        stack = (np.vstack((scale*CMtotalmagSpline(time), GMtotalmagSpline(time))).T)
+        stack = (np.vstack((CMtotalmagSpline(time), GMtotalmagSpline(time))).T)
         
     if fieldtype == 'H':        
         # Horizontal magnetic field 
-        if standardizeCM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagH)/np.mean(CMmagH)
-        stack = (np.vstack((scale*CMmagHSpline(time), GMmagHSpline(time))).T)
+        stack = (np.vstack((CMmagHSpline(time), GMmagHSpline(time))).T)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction 
-        if standardizeCM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagX)/np.mean(CMmagX)
-        stack = (np.vstack((scale*CMmagXSpline(time), GMmagXSpline(time))).T)
+        stack = (np.vstack((CMmagXSpline(time), GMmagXSpline(time))).T)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        if standardizeCM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagY)/np.mean(CMmagY)
-        stack = (np.vstack((scale*CMmagYSpline(time), GMmagYSpline(time))).T)
+        stack = (np.vstack((CMmagYSpline(time), GMmagYSpline(time))).T)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        if standardizeCM:
-            scale = 1
-        else:
-            scale = np.mean(GMmagZ)/np.mean(CMmagZ)
-        stack = np.vstack((scale*CMmagZSpline(time), GMmagZSpline(time))).T
+        stack = np.vstack((CMmagZSpline(time), GMmagZSpline(time))).T
     
     # Calculate correlation for each window
     stackdatasets = pd.DataFrame(stack, columns = ['CrowdMag','GeoMag'])
     t_start = 0                   # Start at the beginning of the data set
-    t_end = t_start + windowsize  # Define the end of the chunksize
+    t_end = t_start + w           # Define the end of the chunksize
     rss = []
     while t_end < len(stackdatasets):
         dataCM = stackdatasets['CrowdMag'].iloc[t_start:t_end]

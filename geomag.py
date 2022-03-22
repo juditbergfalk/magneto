@@ -11,13 +11,14 @@ import requests
 import pathlib
 import os
 import crowdmag as cm
+import filterdata as filt
 
 #####################################
 ### Download relevant GeoMag data ###
 #####################################
 
 def DownloadGeoMag(filenameCM,
-                   component = 'H',
+                   component = 'X',
                    observatory = 'BRW',
                    startCM = 3, endCM = -1):
     """
@@ -37,7 +38,7 @@ def DownloadGeoMag(filenameCM,
     """
     
     # Extract start and end times
-    date = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,rollingave=False,dc_shift=False,standardize=False,bkps=0)[0]
+    date = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,rollingave=False,dc_shift=False,bkps=None)[0]
     
     # Time frame
     starttimeYMD = cm.SplitTime(date)[6][0]      # year-month-day
@@ -67,8 +68,7 @@ def DownloadGeoMag(filenameCM,
 ###################
 
 def ReadCSVGeoMag(filenameGM,
-                  startGM = 0, endGM = -1,
-                  standardize = True):
+                  startGM = 0, endGM = -1):
     """
     Read the GeoMag .csv file and return the date, magnetic field, etc.
     
@@ -77,7 +77,6 @@ def ReadCSVGeoMag(filenameGM,
     filenameGM : string, GeoMag .csv filename
     startGM : int, default=0, starting row for trimming
     endGM : int, default=-1 (last element), ending row for trimming
-    standardize : boolean, does the data need to be standardized (Z-score normalization)?
 
     Returns
     ----------
@@ -116,10 +115,6 @@ def ReadCSVGeoMag(filenameGM,
         if lines.startswith('DATE'):
             location = lines.split(" ")[21]
             
-    # Standardize signal
-    if standardize:
-        magfield = cm.Standardize(magfield)
-
     return date,time,doy,magfield,timeinseconds,location
 
 ##########################################
@@ -130,7 +125,8 @@ def DefineAllComponents(filenameCM,
                         observatory = 'BRW',
                         startCM = 3, endCM = -1, startGM = 0, endGM = -1,
                         download = True,
-                        standardize = True):
+                        dc_shift = False,
+                        filter_signal = 'raw'):
     """
     GeoMag data: Download all components of the magnetic field for the given timeframe and define all variables. 
     
@@ -142,27 +138,31 @@ def DefineAllComponents(filenameCM,
     endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
     startGM : int, default=0, starting row for triming GeoMag data
     endGM : int, default=-1 (last element), ending row for trimming GeoMag data
-    download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
-                or is it already downloaded (False)
-    standardize : boolean, does the data need to be standardized (Z-score normalization)?
-
+    download : boolean, if True: download the .csv file from GeoMag
+    dc_shift : boolean, if True: data will be DC shifted to zero
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
     date : numpy array, year-month-day
     time : numpy array, hour-minute-second
     doy : numpy array, day of year
-    magX,magY,magZ,magH : numpy array, strength of the X,Y,Z,H component of the magnetic field
+    magX,magY,magZ,magH,totalmag : numpy array, strength of the X,Y,Z,H and total component of the magnetic field
     timeinseconds : numpy array, time in seconds
     location : numpy array, observatory code
     """
     
     # Extract start and end times
-    dateCM = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,rollingave=False,dc_shift=False,standardize=standardize,bkps=0)[0]
+    dateCM = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,rollingave=False,dc_shift=False,bkps=None)[0]
     starttimeYMD = cm.SplitTime(dateCM)[6][0]      # year-month-day
     endtimeYMD = cm.SplitTime(dateCM)[6][-1]       # year-month-day
     
-    if download == True:    # Only download the files if needed
+    if download:                 # Only download the files if needed
         # Download files from GeoMag
         DownloadGeoMag(filenameCM,component='X',observatory=observatory,
                        startCM=startCM,endCM=endCM)
@@ -174,32 +174,106 @@ def DefineAllComponents(filenameCM,
                        startCM=startCM,endCM=endCM)
     
     # Read in GeoMag .csv file for each component    
-    date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'
-                                                              .format(observatory,starttimeYMD,endtimeYMD),
-                                                              startGM=startGM,endGM=endGM,standardize=standardize)
+    date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),startGM=startGM,endGM=endGM)
     magY = ReadCSVGeoMag('data/geomag/geomag{}Y_{}_{}.csv'
                          .format(observatory,starttimeYMD,endtimeYMD),
-                         startGM=startGM,endGM=endGM,standardize=standardize)[3]
+                         startGM=startGM,endGM=endGM)[3]
     magZ = ReadCSVGeoMag('data/geomag/geomag{}Z_{}_{}.csv'
                          .format(observatory,starttimeYMD,endtimeYMD),
-                         startGM=startGM,endGM=endGM,standardize=standardize)[3]
-    magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'
-                         .format(observatory,starttimeYMD,endtimeYMD),
-                         startGM=startGM,endGM=endGM,standardize=standardize)[3]
-   
-    # Change to magnitude of the magnetic field
-    #magX = abs(magX)
-    #magY = abs(magY)
-    #magZ = abs(magZ)
-    #magH = abs(magH)    
+                         startGM=startGM,endGM=endGM)[3]
+    #magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'
+                         #.format(observatory,starttimeYMD,endtimeYMD),
+                         #startGM=startGM,endGM=endGM)[3]
+    magH = cm.HorizontalMag(magX,magY)
+    totalmag = cm.TotalMag(magX,magY,magZ)
     
-    # Change to negative of the magnetic field
-    magX = -(magX)
-    magY = -(magY)
-    magZ = -(magZ)
-    magH = -(magH)
-
-    return date,time,doy,magX,magY,magZ,magH,timeinseconds,location
+    # DC shift
+    if dc_shift:
+        totalmag = filt.DC_Shift(totalmag,bkps=None)
+        magH = filt.DC_Shift(magH,bkps=None)
+        magX = filt.DC_Shift(magX,bkps=None)
+        magY = filt.DC_Shift(magY,bkps=None)
+        magZ = filt.DC_Shift(magZ,bkps=None)   
+    
+    # Filter signal: None
+    if filter_signal == 'raw':
+        pass
+    
+    # Filter signal: digital filter forward and backward to a signal
+    if filter_signal == 'filtfilt':
+        
+        cutoff = 0.1
+        fs = 30              # sampling frequency of the digital system
+        order = 5            # order of the filter
+        btype = 'highpass'   # type of filter
+        
+        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
+        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
+        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
+        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
+        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
+    
+    # Filter signal: Savitzky-Golay filter
+    if filter_signal == 'savgol':
+        
+        wl = 99              # window-length
+        polyorder = 5        # order of the polynomial used to fit the samples
+        
+        totalmag = filt.Filter_savgol(totalmag, wl, polyorder)
+        magH = filt.Filter_savgol(magH, wl, polyorder)
+        magX = filt.Filter_savgol(magX, wl, polyorder)
+        magY = filt.Filter_savgol(magY, wl, polyorder)
+        magZ = filt.Filter_savgol(magZ, wl, polyorder)
+    
+    # Filter signal: FFT high freq filter
+    if filter_signal == 'ffthighfreq':
+        
+        timestep = 70              # time step
+        
+        totalmag = filt.Filter_ffthighfreq(totalmag, timestep)
+        magH = filt.Filter_ffthighfreq(magH, timestep)
+        magX = filt.Filter_ffthighfreq(magX, timestep)
+        magY = filt.Filter_ffthighfreq(magY, timestep)
+        magZ = filt.Filter_ffthighfreq(magZ, timestep)
+    
+    # Filter signal: FFT bandpass filter
+    if filter_signal == 'fftbandpass':
+        
+        timestep = 70              # time step
+        low = 0.0002               # lower limit of frequencies
+        high = 0.000001            # upper limit of frequencies
+        
+        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
+        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
+        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
+        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
+        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
+    
+    # Filter signal: Combo: Digital filter forward and backward to a signal and FFT bandpass filter
+    if filter_signal == 'combo':
+        
+        cutoff = 0.1
+        fs = 30              # sampling frequency of the digital system
+        order = 5            # order of the filter
+        btype = 'highpass'   # type of filter
+        
+        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
+        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
+        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
+        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
+        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
+        
+        timestep = 70              # time step
+        low = 0.0002               # lower limit of frequencies
+        high = 0.000001            # upper limit of frequencies
+        
+        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
+        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
+        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
+        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
+        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
+    
+    return date,time,doy,magX,magY,magZ,magH,totalmag,timeinseconds,location
     
 
 #######################################
@@ -208,10 +282,11 @@ def DefineAllComponents(filenameCM,
 
 def PlotBGeoMag(filenameCM,
                 observatory = 'BRW',
-                fieldtype = 'T',
+                fieldtype = 'F',
                 startCM = 3, endCM = -1, startGM = 0, endGM = -1,
                 download = True,
-                standardize = False):
+                dc_shift = False,
+                filter_signal = 'raw'):
     """
     Plotting the GeoMag data of the chosen component of the magnetic field. 
     
@@ -224,9 +299,14 @@ def PlotBGeoMag(filenameCM,
     endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
     startGM : int, default=0, starting row for triming GeoMag data
     endGM : int, default=-1 (last element), ending row for trimming GeoMag data
-    download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
-                or is it already downloaded (False)
-    standardize : boolean, does the data need to be standardized (Z-score normalization)?
+    download : boolean, if True: download the .csv file from GeoMag
+    dc_shift : boolean, if True: data will be DC shifted to zero
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
 
     Returns
     ----------
@@ -234,16 +314,18 @@ def PlotBGeoMag(filenameCM,
     """
     
     # Key:
-    ##### fieldtype = 'T'  - total magnetic field
+    ##### fieldtype = 'F'  - total magnetic field
     ##### fieldtype = 'H'  - horizontal component of field
     ##### fieldtype = 'X'  - x-component of magnetic field
     ##### fieldtype = 'Y'  - y-component of magnetic field
     ##### fieldtype = 'Z'  - z-component of magnetic field
         
     # Date, time, day of year, magnetic field data (x,y,z,h), location
-    date,time,doy,magX,magY,magZ,magH,timeinseconds,location = DefineAllComponents(filenameCM,observatory,
-                                                                                   startCM,endCM,startGM,endGM,
-                                                                                   download,standardize)
+    date,time,doy,magX,magY,magZ,magH,totalmag,timeinseconds,location = DefineAllComponents(filenameCM,observatory,
+                                                                                           startCM,endCM,startGM,endGM,
+                                                                                           download,
+                                                                                           dc_shift,
+                                                                                           filter_signal)
     
     # Time frame
     startdate = date[0]
@@ -264,42 +346,31 @@ def PlotBGeoMag(filenameCM,
     plt.title("GeoMag : {} {} - {} {}".format(startdate,starttime,enddate,endtime), fontsize=16)
     plt.xlabel("UTC time", fontsize=12)
     
-    if fieldtype == 'T':
+    if fieldtype == 'F':
         # Total magnetic field
-        totalmag = cm.TotalMag(magX,magY,magZ) 
         ax.plot(datetime,totalmag, label="Total Magnetic Field", color="orange")
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
-        limit = np.max(totalmag)/50                                       # Set limit for axes
-        plt.ylim(np.min(totalmag)-limit,np.max(totalmag)+limit)
-    
+  
     if fieldtype == 'H':        
         # Horizontal magnetic field        
         ax.plot(datetime,magH, label="Horizontal Magnetic Field", color="orange")
         plt.ylabel("Horizontal Magnetic Field (nT)", fontsize=12)
-        limit = np.max(magH)/50                                           # Set limit for axes
-        plt.ylim(np.min(magH)-limit,np.max(magH)+limit)
-    
+   
     if fieldtype == 'X':        
         # Magnetic field - X direction        
         ax.plot(datetime,magX, label="Magnetic Field - X component", color="orange")
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
-        limit = np.max(magX)/50                                           # Set limit for axes
-        plt.ylim(np.min(magX)-limit,np.max(magX)+limit)
-    
+   
     if fieldtype == 'Y':
         # Magnetic field - Y direction
         ax.plot(datetime,magY, label="Magnetic Field - Y component", color="orange")
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
-        limit = np.max(magY)/50                                           # Set limit for axes
-        plt.ylim(np.min(magY)-limit,np.max(magY)+limit)
-        
+       
     if fieldtype == 'Z':
         # Magnetic field - Z direction
         ax.plot(datetime,magZ, label="Magnetic Field - Z component", color="orange")
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
-        limit = np.max(magZ)/50                                           # Set limit for axes
-        plt.ylim(np.min(magZ)-limit,np.max(magZ)+limit)
- 
+
     # Reduce the number of ticks for the x-axis
     xticks = ticker.MaxNLocator(10)
     ax.xaxis.set_major_locator(xticks)
