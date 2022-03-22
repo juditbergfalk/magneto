@@ -5,6 +5,27 @@ from scipy import signal, fftpack
 from scipy.fftpack import rfft, irfft, fftfreq
 import ruptures as rpt
 
+##################
+### Parameters ###
+##################
+
+### Digital filter forward and backward to a signal
+cutoff = 0.1
+fs = 30                     # sampling frequency of the digital system
+order = 5                   # order of the filter
+btype = 'highpass'          # type of filter
+
+### Savitzky-Golay filter
+wl = 99                     # window-length
+polyorder = 5               # order of the polynomial used to fit the samples
+
+### FFT High freq
+timestep = 70               # time step
+
+### FFT bandpass
+high = 0.0002               # upper limit of frequencies
+low = 0.000001              # lower limit of frequencies
+
 ####################################
 ### Calculating rolling averages ###
 ####################################
@@ -49,7 +70,7 @@ def RollingAverage(array,
 #################
 
 # Digital filter forward and backward to a signal
-def Filter_filtfilt(mag, cutoff, fs, order, btype):
+def Filter_filtfilt(mag):#, cutoff, fs, order, btype):
     """
     Applies digital filter forward and backward to a signal.
     
@@ -65,7 +86,7 @@ def Filter_filtfilt(mag, cutoff, fs, order, btype):
     ----------
     filtered signal : numpy array    
     """
-    
+  
     nyq = 0.5 * fs
     normal_cutoff = cutoff/nyq
     b, a = signal.butter(order, normal_cutoff, btype, analog=False)
@@ -75,7 +96,7 @@ def Filter_filtfilt(mag, cutoff, fs, order, btype):
     return filtfilt_mag
     
 # Savitzky-Golay filter 
-def Filter_savgol(mag, window_length, polyorder):
+def Filter_savgol(mag):#, window_length, polyorder):
     """
     Applies Savitzky-Golay filter to a signal.
     
@@ -92,7 +113,7 @@ def Filter_savgol(mag, window_length, polyorder):
     
     return signal.savgol_filter(mag, window_length, polyorder)
 
-def Filter_ffthighfreq(sig, timestep):
+def Filter_ffthighfreq(mag):#, timestep):
     """
     Applies FFT high frequency filter to a signal.
     
@@ -105,15 +126,15 @@ def Filter_ffthighfreq(sig, timestep):
     ----------
     filtered signal : numpy array    
     """
-    
+      
     # FFT of the signal
-    sig_fft = fftpack.fft(sig)
+    mag_fft = fftpack.fft(mag)
 
     # Power (sig_fft is of complex dtype)
-    power = np.abs(sig_fft)**2
+    power = np.abs(mag_fft)**2
 
     # Corresponding frequencies
-    sample_freq = fftpack.fftfreq(sig.size, d = timestep)
+    sample_freq = fftpack.fftfreq(mag.size, d = timestep)
 
     # Find the peak frequency: only the positive frequencies
     pos_mask = np.where(sample_freq > 0)
@@ -121,14 +142,14 @@ def Filter_ffthighfreq(sig, timestep):
     peak_freq = freqs[power[pos_mask].argmax()]
 
     # We now remove all the high frequencies and transform back from frequencies to signal.
-    high_freq_fft = sig_fft.copy()
+    high_freq_fft = mag_fft.copy()
     high_freq_fft[np.abs(sample_freq) > peak_freq] = 0
     ffthighfreq_mag = fftpack.ifft(high_freq_fft)
     
     return ffthighfreq_mag
 
 # FFT filter
-def Filter_fftbandpass(mag, timestep, low, high):
+def Filter_fftbandpass(mag):#, timestep, low, high):
     """
     Applies FFT bandpass filter to a signal.
     
@@ -143,14 +164,14 @@ def Filter_fftbandpass(mag, timestep, low, high):
     ----------
     filtered signal : numpy array    
     """
-    
+        
     W = fftfreq(mag.size, d = timestep)
     f_signal = rfft(mag)
 
     # If our original signal time was in seconds, this is now in Hz    
     cut_f_signal = f_signal.copy()
-    cut_f_signal[(W>low)] = 0           # Low frequencies
-    cut_f_signal[(W<high)] = 0          # High frequencies
+    cut_f_signal[(W>high)] = 0           # High frequencies
+    cut_f_signal[(W<low)] = 0            # Low frequencies
 
     fftbandpass_mag = irfft(cut_f_signal)
     

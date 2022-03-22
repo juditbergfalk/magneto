@@ -201,77 +201,49 @@ def DefineAllComponents(filenameCM,
     
     # Filter signal: digital filter forward and backward to a signal
     if filter_signal == 'filtfilt':
-        
-        cutoff = 0.1
-        fs = 30              # sampling frequency of the digital system
-        order = 5            # order of the filter
-        btype = 'highpass'   # type of filter
-        
-        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
-        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
-        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
-        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
-        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
+        totalmag = filt.Filter_filtfilt(totalmag)
+        magH = filt.Filter_filtfilt(magH)
+        magX = filt.Filter_filtfilt(magX)
+        magY = filt.Filter_filtfilt(magY)
+        magZ = filt.Filter_filtfilt(magZ)
     
     # Filter signal: Savitzky-Golay filter
     if filter_signal == 'savgol':
-        
-        wl = 99              # window-length
-        polyorder = 5        # order of the polynomial used to fit the samples
-        
-        totalmag = filt.Filter_savgol(totalmag, wl, polyorder)
-        magH = filt.Filter_savgol(magH, wl, polyorder)
-        magX = filt.Filter_savgol(magX, wl, polyorder)
-        magY = filt.Filter_savgol(magY, wl, polyorder)
-        magZ = filt.Filter_savgol(magZ, wl, polyorder)
+        totalmag = filt.Filter_savgol(totalmag)
+        magH = filt.Filter_savgol(magH)
+        magX = filt.Filter_savgol(magX)
+        magY = filt.Filter_savgol(magY)
+        magZ = filt.Filter_savgol(magZ)
     
     # Filter signal: FFT high freq filter
     if filter_signal == 'ffthighfreq':
-        
-        timestep = 70              # time step
-        
-        totalmag = filt.Filter_ffthighfreq(totalmag, timestep)
-        magH = filt.Filter_ffthighfreq(magH, timestep)
-        magX = filt.Filter_ffthighfreq(magX, timestep)
-        magY = filt.Filter_ffthighfreq(magY, timestep)
-        magZ = filt.Filter_ffthighfreq(magZ, timestep)
+        totalmag = filt.Filter_ffthighfreq(totalmag)
+        magH = filt.Filter_ffthighfreq(magH)
+        magX = filt.Filter_ffthighfreq(magX)
+        magY = filt.Filter_ffthighfreq(magY)
+        magZ = filt.Filter_ffthighfreq(magZ)
     
     # Filter signal: FFT bandpass filter
     if filter_signal == 'fftbandpass':
-        
-        timestep = 70              # time step
-        low = 0.0002               # lower limit of frequencies
-        high = 0.000001            # upper limit of frequencies
-        
-        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
-        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
-        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
-        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
-        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
+        totalmag = filt.Filter_fftbandpass(totalmag)
+        magH = filt.Filter_fftbandpass(magH)
+        magX = filt.Filter_fftbandpass(magX)
+        magY = filt.Filter_fftbandpass(magY)
+        magZ = filt.Filter_fftbandpass(magZ)
     
     # Filter signal: Combo: Digital filter forward and backward to a signal and FFT bandpass filter
     if filter_signal == 'combo':
+        totalmag = filt.Filter_filtfilt(totalmag)
+        magH = filt.Filter_filtfilt(magH)
+        magX = filt.Filter_filtfilt(magX)
+        magY = filt.Filter_filtfilt(magY)
+        magZ = filt.Filter_filtfilt(magZ)
         
-        cutoff = 0.1
-        fs = 30              # sampling frequency of the digital system
-        order = 5            # order of the filter
-        btype = 'highpass'   # type of filter
-        
-        totalmag = filt.Filter_filtfilt(totalmag, cutoff, fs, order, btype)
-        magH = filt.Filter_filtfilt(magH, cutoff, fs, order, btype)
-        magX = filt.Filter_filtfilt(magX, cutoff, fs, order, btype)
-        magY = filt.Filter_filtfilt(magY, cutoff, fs, order, btype)
-        magZ = filt.Filter_filtfilt(magZ, cutoff, fs, order, btype)
-        
-        timestep = 70              # time step
-        low = 0.0002               # lower limit of frequencies
-        high = 0.000001            # upper limit of frequencies
-        
-        totalmag = filt.Filter_fftbandpass(totalmag, timestep, low, high)
-        magH = filt.Filter_fftbandpass(magH, timestep, low, high)
-        magX = filt.Filter_fftbandpass(magX, timestep, low, high)
-        magY = filt.Filter_fftbandpass(magY, timestep, low, high)
-        magZ = filt.Filter_fftbandpass(magZ, timestep, low, high)
+        totalmag = filt.Filter_fftbandpass(totalmag)
+        magH = filt.Filter_fftbandpass(magH)
+        magX = filt.Filter_fftbandpass(magX)
+        magY = filt.Filter_fftbandpass(magY)
+        magZ = filt.Filter_fftbandpass(magZ)
     
     return date,time,doy,magX,magY,magZ,magH,totalmag,timeinseconds,location
     
