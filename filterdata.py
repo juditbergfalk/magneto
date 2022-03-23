@@ -23,7 +23,7 @@ polyorder = 5               # order of the polynomial used to fit the samples
 timestep = 70               # time step
 
 ### FFT bandpass
-high = 0.0002               # upper limit of frequencies
+high = 0.0003#0.0002               # upper limit of frequencies
 low = 0.000001              # lower limit of frequencies
 
 ####################################
