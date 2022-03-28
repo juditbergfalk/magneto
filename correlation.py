@@ -415,7 +415,7 @@ def ScatterPlot(filenameCM,
         
     if fieldtype == 'H':        
         # Horizontal magnetic field
-        plt.scatter(scale*CMmagHSpline(time),GMmagHSpline(time))
+        plt.scatter(CMmagHSpline(time),GMmagHSpline(time))
         plt.xlabel("CrowdMag - Magnetic Field - Horizontal (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Horizontal (nT)", fontsize=12)
         cmdata = CMmagHSpline(time)
@@ -423,7 +423,7 @@ def ScatterPlot(filenameCM,
     
     if fieldtype == 'X':        
         # Magnetic field - X direction
-        plt.scatter(scale*CMmagXSpline(time),GMmagXSpline(time))
+        plt.scatter(CMmagXSpline(time),GMmagXSpline(time))
         plt.xlabel("CrowdMag - Magnetic Field - X (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - X (nT)", fontsize=12)
         cmdata = CMmagXSpline(time)
@@ -431,7 +431,7 @@ def ScatterPlot(filenameCM,
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        plt.scatter(scale*CMmagYSpline(time),GMmagYSpline(time))
+        plt.scatter(CMmagYSpline(time),GMmagYSpline(time))
         plt.xlabel("CrowdMag - Magnetic Field - Y (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Y (nT)", fontsize=12)
         cmdata = CMmagYSpline(time)
@@ -439,7 +439,7 @@ def ScatterPlot(filenameCM,
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        plt.scatter(scale*CMmagZSpline(time),GMmagZSpline(time))
+        plt.scatter(CMmagZSpline(time),GMmagZSpline(time))
         plt.xlabel("CrowdMag - Magnetic Field - Z (nT)", fontsize=12)
         plt.ylabel("GeoMag - Magnetic Field - Z (nT)", fontsize=12)
         cmdata = CMmagZSpline(time)
