@@ -130,13 +130,13 @@ def Filter_ffthighfreq(mag):#, timestep):
     # FFT of the signal
     mag_fft = fftpack.fft(mag)
 
-    # Power (sig_fft is of complex dtype)
+    # Calculate power spectrum
     power = np.abs(mag_fft)**2
 
     # Corresponding frequencies
     sample_freq = fftpack.fftfreq(mag.size, d = timestep)
 
-    # Find the peak frequency: only the positive frequencies
+    # Find the peak frequency: concentrate on the positive values
     pos_mask = np.where(sample_freq > 0)
     freqs = sample_freq[pos_mask]
     peak_freq = freqs[power[pos_mask].argmax()]
@@ -146,7 +146,7 @@ def Filter_ffthighfreq(mag):#, timestep):
     high_freq_fft[np.abs(sample_freq) > peak_freq] = 0
     ffthighfreq_mag = fftpack.ifft(high_freq_fft)
     
-    return ffthighfreq_mag
+    return ffthighfreq_mag, peak_freq
 
 # FFT filter
 def Filter_fftbandpass(mag):#, timestep, low, high):

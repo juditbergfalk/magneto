@@ -217,11 +217,11 @@ def DefineAllComponents(filenameCM,
     
     # Filter signal: FFT high freq filter
     if filter_signal == 'ffthighfreq':
-        totalmag = filt.Filter_ffthighfreq(totalmag)
-        magH = filt.Filter_ffthighfreq(magH)
-        magX = filt.Filter_ffthighfreq(magX)
-        magY = filt.Filter_ffthighfreq(magY)
-        magZ = filt.Filter_ffthighfreq(magZ)
+        totalmag = filt.Filter_ffthighfreq(totalmag)[0]
+        magH = filt.Filter_ffthighfreq(magH)[0]
+        magX = filt.Filter_ffthighfreq(magX)[0]
+        magY = filt.Filter_ffthighfreq(magY)[0]
+        magZ = filt.Filter_ffthighfreq(magZ)[0]
     
     # Filter signal: FFT bandpass filter
     if filter_signal == 'fftbandpass':
