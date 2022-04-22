@@ -244,6 +244,8 @@ def DefineAllComponents(filenameCM,
         magX = filt.Filter_fftbandpass(magX)
         magY = filt.Filter_fftbandpass(magY)
         magZ = filt.Filter_fftbandpass(magZ)
+        
+    magH = -magH
     
     return date,time,doy,magX,magY,magZ,magH,totalmag,timeinseconds,location
     
