@@ -271,7 +271,7 @@ def SplitTime(date):
     timeinseconds = []
     for t in range(len(year)):
         dt = datetime(int(year[t]),int(month[t]),int(day[t]),int(hour[t]),int(minute[t]),int(second[t]))
-        dtseconds = (dt-datetime(1,1,1)).total_seconds()
+        dtseconds = (dt-datetime(1970,1,1)).total_seconds()
         timeinseconds.append(dtseconds)
     timeinseconds = np.array(timeinseconds)
     

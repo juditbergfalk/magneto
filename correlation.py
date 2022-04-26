@@ -9,6 +9,39 @@ import seaborn as sns
 import scipy.stats as stats
 import warnings
 
+#######################
+### Spline function ###
+#######################
+
+def SplineFunction(x,y):
+    """
+    Spline (interpolation) function using scipy's InterpolatedUnivariateSpline module. 
+    
+    Parameters
+    ----------
+    x,y : numpy arrays
+
+    Returns
+    ----------
+    Spline of degree 3.
+    """
+    return InterpolatedUnivariateSpline(x,y,k=3)
+
+def SplineData(t,date,magfield):
+    """
+    Spline (interpolation) time vs magnetic field and return an array for new sampling times (t). 
+    
+    Parameters
+    ----------
+    t, date, magfield : numpy arrays
+
+    Returns
+    ----------
+    Numpy array of magnetic field over given sampling times.
+    """
+    mag = SplineFunction(date,magfield)
+    return mag(t)   
+
 #######################################
 ### Overlay Plot CrowdMag vs GeoMag ###
 #######################################
@@ -30,7 +63,7 @@ def PlotOverlay2Data(filenameCM,
     Parameters
     ----------
     filenameCM : string, CrowdMag .csv filename
-    observatory : list of observatory codes (i.e. ['BRW','DED']
+    observatory : observatory code (i.e. 'BRW','DED')
     fieldtype : string, default=total, component of the magnetic field
     startCM : int, default=3, starting row for trimming CrowdMag data
     endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
@@ -65,60 +98,86 @@ def PlotOverlay2Data(filenameCM,
     warnings.simplefilter(action='ignore', category=RuntimeWarning)    
     warnings.simplefilter(action='ignore', category=UserWarning)
     
-    observatory = [observatory]
-    
     # Change timeshift to seconds
-    timeshift = int(timeshift * 60)
+    timeshift = int(timeshift * 60/70)     # CrowdMag is 70-sec, GeoMag is 60-sec intervals
     
+    ###############
     # CrowdMag data
     CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
                                                                        rollingave,window_size,
                                                                        dc_shift,bkps,
                                                                        filter_signal)
     
-    # Time in seconds 
-    CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
+    # Trim CrowdMad data
+    if timeshift != 0:
+        CMdate = CMdate[timeshift:]
+        CMtotalmag = CMtotalmag[timeshift:]
+        CMmagH = CMmagH[timeshift:]
+        CMmagX = CMmagX[timeshift:]
+        CMmagY = CMmagY[timeshift:]
+        CMmagZ = CMmagZ[timeshift:]     
     
     # Start time in seconds
     CMstarttime = cm.SplitTime(CMdate)[8][0]
+    # Time in seconds 
+    CMtimesec = cm.SplitTime(CMdate)[8] - CMstarttime
     
-    # Empty lists for GeoMag data
-    GMmagXlist,GMmagYlist,GMmagZlist,GMmagHlist,GMtotalmaglist,GMtimeseclist = [],[],[],[],[],[]
-    
-    # Download all components of data from each observatory
-    observatory = np.array(observatory)                # Change list to numpy array
-    for o in observatory:
-        # GeoMag data
-        GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,o,
+    #############################
+    # GeoMag data
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
                                                                                        startCM,endCM,startGM,endGM,
                                                                                        download,
                                                                                        dc_shift,
                                                                                        filter_signal)
         
-        # Fuse date and time to match CrowdMag date
-        GMdatetime = []
-        for t in range(len(GMdate)):
-            dt = GMdate[t] + ' ' + GMtime[t][0:8]
-            GMdatetime.append(dt)
-        GMdatetime = np.array(GMdatetime)
+    # Trim GeoMag data (trim ends) to match the length of CrowdMag data
+    if timeshift != 0:
+        GMdate = GMdate[0:-timeshift]
+        GMtime = GMtime[0:-timeshift]
+        GMdoy = GMdoy[0:-timeshift]
+        GMmagX = GMmagX[0:-timeshift]
+        GMmagY = GMmagY[0:-timeshift]
+        GMmagZ = GMmagZ[0:-timeshift]
+        GMmagH = GMmagH[0:-timeshift]
+        GMtotalmag = GMtotalmag[0:-timeshift]
+        GMtimesec = GMtimesec[0:-timeshift] 
+        GMlocation = GMlocation[0:-timeshift]       
+        
+    # Fuse date and time to match CrowdMag date
+    GMdatetime = []
+    for t in range(len(GMdate)):
+        dt = GMdate[t] + ' ' + GMtime[t][0:8]
+        GMdatetime.append(dt)
+    GMdatetime = np.array(GMdatetime)
 
-        # Time in seconds 
-        GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
-        # Start time in seconds
-        GMstarttime = cm.SplitTime(GMdatetime)[8][0]
-
-        # Append all to the list
-        GMmagXlist.append(GMmagX)
-        GMmagYlist.append(GMmagY)
-        GMmagZlist.append(GMmagZ)
-        GMmagHlist.append(GMmagH)
-        GMtotalmaglist.append(GMtotalmag)
-        GMtimeseclist.append(GMtimesec)
+    # Start time in seconds
+    GMstarttime = cm.SplitTime(GMdatetime)[8][0]
+    # Time in seconds 
+    GMtimesec = cm.SplitTime(GMdatetime)[8] - GMstarttime
+    
+    ######################
+    # Spline CrowdMag data
+    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
+    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
+    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
+    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
+    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
+    
+    # Spline GeoMag data
+    GMtotalmagSpline = lambda t: SplineData(t,GMtimesec,GMtotalmag)
+    GMmagHSpline = lambda t: SplineData(t,GMtimesec,GMmagH)
+    GMmagXSpline = lambda t: SplineData(t,GMtimesec,GMmagX)
+    GMmagYSpline = lambda t: SplineData(t,GMtimesec,GMmagY)
+    GMmagZSpline = lambda t: SplineData(t,GMtimesec,GMmagZ) 
+    
+    # Define time interval
+    time = np.linspace(0,np.max(GMtimesec),len(GMtotalmag))    
     
     # Time frame
     starttime = CMdate[0]
     endtime = CMdate[-1] 
     
+    ######
     # Plot
     fig = plt.figure(figsize=(15,7))
     ax = fig.add_subplot()
@@ -127,74 +186,36 @@ def PlotOverlay2Data(filenameCM,
     
     if fieldtype == 'F':
         # Total magnetic field
-        ax.plot(CMtimesec,CMtotalmag, label="CrowdMag data")
-        for o in range(len(observatory)):
-            ax.plot(GMtimeseclist[o]+timeshift,GMtotalmaglist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
+        ax.plot(time,CMtotalmagSpline(time), label="CrowdMag data")
+        ax.plot(time,GMtotalmagSpline(time), label="GeoMag data, Observatory : {}".format(observatory))
         plt.ylabel("Total Magnetic Field (nT)", fontsize=12)
     
     if fieldtype == 'H':        
         # Horizontal magnetic field
-        ax.plot(CMtimesec,CMmagH, label="CrowdMag data")
-        for o in range(len(observatory)):
-            ax.plot(GMtimeseclist[o]+timeshift,GMmagHlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
+        ax.plot(time,CMmagHSpline(time), label="CrowdMag data")
+        ax.plot(time,GMmagHSpline(time), label="GeoMag data, Observatory : {}".format(observatory))
         plt.ylabel("Magnetic Field - H (nT)", fontsize=12)
     
     if fieldtype == 'X':        
         # Magnetic field - X direction
-        ax.plot(CMtimesec,CMmagX, label="CrowdMag data")
-        for o in range(len(observatory)):
-            ax.plot(GMtimeseclist[o]+timeshift,GMmagXlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
+        ax.plot(time,CMmagXSpline(time), label="CrowdMag data")
+        ax.plot(time,GMmagXSpline(time), label="GeoMag data, Observatory : {}".format(observatory))
         plt.ylabel("Magnetic Field - X (nT)", fontsize=12)
     
     if fieldtype == 'Y':
         # Magnetic field - Y direction
-        ax.plot(CMtimesec,CMmagY, label="CrowdMag data")
-        for o in range(len(observatory)):
-            ax.plot(GMtimeseclist[o]+timeshift,GMmagYlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
+        ax.plot(time,CMmagYSpline(time), label="CrowdMag data")
+        ax.plot(time,GMmagYSpline(time), label="GeoMag data, Observatory : {}".format(observatory))
         plt.ylabel("Magnetic Field - Y (nT)", fontsize=12)
         
     if fieldtype == 'Z':
         # Magnetic field - Z direction
-        ax.plot(CMtimesec,CMmagZ, label="CrowdMag data")
-        for o in range(len(observatory)):
-            ax.plot(GMtimeseclist[o]+timeshift,GMmagZlist[o], label="GeoMag data, Observatory : {}".format(observatory[o]))
+        ax.plot(time,CMmagZSpline(time), label="CrowdMag data")
+        ax.plot(time,GMmagZSpline(time), label="GeoMag data, Observatory : {}".format(observatory))
         plt.ylabel("Magnetic Field - Z (nT)", fontsize=12)
         
     plt.legend()
     plt.show()
-    
-#######################
-### Spline function ###
-#######################
-
-def SplineFunction(x,y):
-    """
-    Spline (interpolation) function using scipy's InterpolatedUnivariateSpline module. 
-    
-    Parameters
-    ----------
-    x,y : numpy arrays
-
-    Returns
-    ----------
-    Spline of degree 3.
-    """
-    return InterpolatedUnivariateSpline(x,y,k=3)
-
-def SplineData(t,date,magfield):
-    """
-    Spline (interpolation) time vs magnetic field and return an array for new sampling times (t). 
-    
-    Parameters
-    ----------
-    t, date, magfield : numpy arrays
-
-    Returns
-    ----------
-    Numpy array of magnetic field over given sampling times.
-    """
-    mag = SplineFunction(date,magfield)
-    return mag(t)   
 
 ###############################    
 ### Correlation Coefficient ###
@@ -356,7 +377,7 @@ def ScatterPlot(filenameCM,
                                                                                                              dc_shift,
                                                                                                              filter_signal)
     
-    # Trim data
+    # Trim data to match the length of CrowdMag data
     if timeshift != 0:
         GMdate = GMdate[0:-timeshift]
         GMtime = GMtime[0:-timeshift]
@@ -394,7 +415,8 @@ def ScatterPlot(filenameCM,
     GMmagZSpline = lambda t: SplineData(t,GMtimesec,GMmagZ) 
     
     # Define time interval
-    time = np.linspace(0,np.max(CMtimesec),len(CMdate))
+    #time = np.linspace(0,np.max(CMtimesec),len(CMdate))
+    time = np.linspace(0,np.max(GMtimesec),len(GMtotalmag))
         
     # Time frame
     starttime = CMdate[0]
@@ -448,7 +470,8 @@ def ScatterPlot(filenameCM,
     # Calclate correlation coefficient
     r = CorrelationCoefficient(cmdata,gmdata)
     # Fitting: polyfit
-    x = np.linspace(np.min(cmdata),np.max(cmdata),len(CMdate))
+    x = np.linspace(np.min(gmdata),np.max(gmdata),len(GMdate))
+    #x = np.linspace(np.min(cmdata),np.max(cmdata),len(CMdate))
     slope_polyfit,intercept_polyfit = FittingPolyfit(cmdata,gmdata)
     # Residuals
     residuals = gmdata - LinearFunction(x,slope_polyfit,intercept_polyfit)
@@ -456,7 +479,7 @@ def ScatterPlot(filenameCM,
     stdev = np.std(gmdata)
     chisquared = np.sum(residuals**2/stdev**2)   # not sure about the errors!!
     # Degrees of freedom = number of data points - number of fitting parameters
-    dof = len(CMdate) - 2    
+    dof = len(GMdate) - 2    
     reducedchisquared = chisquared / dof
     
     plt.plot(x,LinearFunction(x,slope_polyfit,intercept_polyfit), label="Linear Fit", color='r')
