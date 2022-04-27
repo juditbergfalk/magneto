@@ -659,11 +659,11 @@ def RWTLCC(filenameCM,
     stackdatasets = pd.DataFrame(stack, columns = ['CrowdMag','GeoMag'])
     t_start = 0                   # Start at the beginning of the data set
     t_end = t_start + w           # Define the end of the chunksize
-    rss = []
+    rss = []                      # Empty list of correlation coeff
     while t_end < len(stackdatasets):
         dataCM = stackdatasets['CrowdMag'].iloc[t_start:t_end]
         dataGM = stackdatasets['GeoMag'].iloc[t_start:t_end]
-        rs = [TLCC(dataCM,dataGM, lag) for lag in range(-int(n),int(n+1))]
+        rs = [TLCC(dataCM,dataGM, lag) for lag in range(-int(n),int(n+1))]    # Calculate correlation coeff for the range of lag
         rss.append(rs)
         t_start = t_start + step
         t_end = t_end + step
@@ -682,3 +682,169 @@ def RWTLCC(filenameCM,
     sns.heatmap(rss, cmap = 'RdBu_r', ax = ax)
     ax.set(title=f'Rolling Windowed Time Lagged Cross Correlation', xlabel='Offset',ylabel='Epochs')
     ax.set_xticklabels([int(i-n) for i in ax.get_xticks()]);
+    
+########################################    
+### Rolling window cross correlation ###
+########################################
+
+def RWCC(filenameCM,
+           observatory = 'BRW',
+           fieldtype = 'F',
+           startCM = 3, endCM = -1, startGM = 0, endGM = -1,
+           download = True,
+           w = 300, step = 100,
+           rollingave = False,
+           window_size = 10,
+           dc_shift = True,
+           bkps = 4,
+           filter_signal = 'raw'):
+    """
+    A heat-map of the rolling window cross correlation (RWCC) for the CrowdMag and GeoMag data sets. 
+    
+    Parameters
+    ----------
+    filenameCM : string, CrowdMag .csv filename
+    observatory : string, default=Barrow Observatory, code for the observatory
+    fieldtype : string, default=total, component of the magnetic field
+    startCM : int, default=3, starting row for trimming CrowdMag data
+    endCM : int, default=-1 (last element), ending row for trimming CrowdMag data
+    startGM : int, default=0, starting row for triming GeoMag data
+    endGM : int, default=-1 (last element), ending row for trimming GeoMag data
+    download : boolean, default=True, do you want to download the .csv file from GeoMag (True) 
+                or is it already downloaded (False)
+    w : int, default=300, chunks of the data set that is calculated at a time, number of samples
+    step : int, default=100, stepsize of the loop
+    rollingave : boolean, if True: calculates the rolling average for the CrowdMag data
+    window_size : int, default=10, window-size for the rolling average
+    dc_shift : boolean, if True: both CrowdMag and GeoMag data will be DC shifted to zero
+    bkps : int, default=4, max number of predicted breaking points    
+    filter_signal : string, can be 'raw' (no filter, 
+                                   'filtfilt' (scipy.filtfilt), 
+                                   'savgol' (scipy.savgol_filter), 
+                                   'ffthighfreq', 
+                                   'fftbandpass', 
+                                   'combo' (filtfilt and fftbandbpass)
+
+    Returns
+    ----------
+    Rolling window cross-correlation plot. 
+    """
+    
+    # Key:
+    ##### fieldtype = 'F'  - total magnetic field
+    ##### fieldtype = 'H'  - horizontal component of field
+    ##### fieldtype = 'X'  - x-component of magnetic field
+    ##### fieldtype = 'Y'  - y-component of magnetic field
+    ##### fieldtype = 'Z'  - z-component of magnetic field
+    
+    # Ignore warnings
+    warnings.simplefilter(action='ignore', category=RuntimeWarning)      
+    
+    # CrowdMag data
+    CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
+                                                                       rollingave,window_size,
+                                                                       dc_shift,bkps,
+                                                                       filter_signal)
+    
+    # Time in seconds 
+    CMtimesec = cm.SplitTime(CMdate)[8] - cm.SplitTime(CMdate)[8][0]
+    
+    # GeoMag data
+    GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,
+                                                                                                             observatory,
+                                                                                                             startCM,
+                                                                                                             endCM,
+                                                                                                             startGM,
+                                                                                                             endGM,
+                                                                                                             download,
+                                                                                                             dc_shift,
+                                                                                                             filter_signal)
+    
+    # Fuse date and time to match CrowdMag date
+    GMdatetime = []
+    for t in range(len(GMdate)):
+        dt = GMdate[t] + ' ' + GMtime[t][0:8]
+        GMdatetime.append(dt)
+    GMdatetime = np.array(GMdatetime)
+    
+    # Time in seconds 
+    GMtimesec = cm.SplitTime(GMdatetime)[8] - cm.SplitTime(GMdatetime)[8][0]
+        
+    # Spline CrowdMag data
+    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
+    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
+    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
+    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
+    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
+    
+    # Spline GeoMag data
+    GMtotalmagSpline = lambda t: SplineData(t,GMtimesec,GMtotalmag)
+    GMmagHSpline = lambda t: SplineData(t,GMtimesec,GMmagH)
+    GMmagXSpline = lambda t: SplineData(t,GMtimesec,GMmagX)
+    GMmagYSpline = lambda t: SplineData(t,GMtimesec,GMmagY)
+    GMmagZSpline = lambda t: SplineData(t,GMtimesec,GMmagZ)    
+    
+    # Time frame
+    starttime = CMdate[0]
+    endtime = CMdate[-1] 
+    
+    # Define time interval
+    time = np.linspace(0,np.max(GMtimesec),len(GMtotalmag))
+    
+    # Plot    
+    if fieldtype == 'F':
+        # Total magnetic field
+        stack = (np.vstack((CMtotalmagSpline(time), GMtotalmagSpline(time))).T)
+        componentforplot = 'Total'
+        
+    if fieldtype == 'H':        
+        # Horizontal magnetic field 
+        stack = (np.vstack((CMmagHSpline(time), GMmagHSpline(time))).T)
+        componentforplot = 'Horizontal'
+    
+    if fieldtype == 'X':        
+        # Magnetic field - X direction 
+        stack = (np.vstack((CMmagXSpline(time), GMmagXSpline(time))).T)
+        componentforplot = 'X'
+    
+    if fieldtype == 'Y':
+        # Magnetic field - Y direction
+        stack = (np.vstack((CMmagYSpline(time), GMmagYSpline(time))).T)
+        componentforplot = 'Y'
+        
+    if fieldtype == 'Z':
+        # Magnetic field - Z direction
+        stack = np.vstack((CMmagZSpline(time), GMmagZSpline(time))).T
+        componentforplot = 'Z'
+    
+    # Calculate correlation for each window
+    stackdatasets = pd.DataFrame(stack, columns = ['CrowdMag','GeoMag'])
+    t_start = 0                   # Start at the beginning of the data set
+    t_end = t_start + w           # Define the end of the chunksize
+    rss = []                      # Empty list of correlation coeff
+    amplitudeCM = []              # Empty list of amplitude of CrowdMag data
+    amplitudeGM = []              # Empty list of amplitude of GeoMag data
+    while t_end < len(stackdatasets):
+        dataCM = stackdatasets['CrowdMag'].iloc[t_start:t_end]     # Define chunk of CrowdMag data
+        dataGM = stackdatasets['GeoMag'].iloc[t_start:t_end]       # Define chunk of GeoMag data
+        ampCM = (max(dataCM)-min(dataCM))/2                        # Peak / Trough of CrowdMag data
+        ampGM = (max(dataGM)-min(dataGM))/2                        # Peak / Trough of GeoMag data
+        amplitudeCM.append(ampCM)                                  # Append value to list
+        amplitudeGM.append(ampGM)                                  # Append value to list
+        rs = dataCM.corr(dataGM)                                   # Calculate correlation coefficient of that chunk
+        rss.append(rs)
+        t_start = t_start + step
+        t_end = t_end + step
+    rss = np.array(rss)
+    amplitudeCM = np.array(amplitudeCM)
+    amplitudeGM = np.array(amplitudeGM)
+    
+    # Plot
+    plt.figure(figsize=(15,7))
+    plt.title('Amplitude vs Correlation Coefficient')
+    plt.scatter(rss, amplitudeCM, label='CrowdMag')
+    plt.scatter(rss, amplitudeGM, label='GeoMag')
+    plt.xlabel('Correlation Coefficient (r)')
+    plt.ylabel('Amplitude - {} Component (nT)'.format(componentforplot))
+    plt.legend()
+    plt.show()
