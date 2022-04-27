@@ -790,6 +790,7 @@ def RWCC(filenameCM,
     
     # Define time interval
     time = np.linspace(0,np.max(GMtimesec),len(GMtotalmag))
+    print('time = {}'.format(time))
     
     # Plot    
     if fieldtype == 'F':
@@ -819,32 +820,40 @@ def RWCC(filenameCM,
     
     # Calculate correlation for each window
     stackdatasets = pd.DataFrame(stack, columns = ['CrowdMag','GeoMag'])
-    t_start = 0                   # Start at the beginning of the data set
-    t_end = t_start + w           # Define the end of the chunksize
-    rss = []                      # Empty list of correlation coeff
-    amplitudeCM = []              # Empty list of amplitude of CrowdMag data
-    amplitudeGM = []              # Empty list of amplitude of GeoMag data
+    t_start = 0                        # Start at the beginning of the data set
+    t_end = t_start + w                # Define the end of the chunksize
+    rss_list = []                      # Empty list of correlation coeff
+    amplitudeCM_list = []              # Empty list of amplitude of CrowdMag data
+    amplitudeGM_list = []              # Empty list of amplitude of GeoMag data
+    stdev_amplitudeCM_list = []              # Empty list of amplitude of CrowdMag data
+    stdev_amplitudeGM_list = []              # Empty list of amplitude of GeoMag data
     while t_end < len(stackdatasets):
         dataCM = stackdatasets['CrowdMag'].iloc[t_start:t_end]     # Define chunk of CrowdMag data
         dataGM = stackdatasets['GeoMag'].iloc[t_start:t_end]       # Define chunk of GeoMag data
         ampCM = (max(dataCM)-min(dataCM))/2                        # Peak / Trough of CrowdMag data
         ampGM = (max(dataGM)-min(dataGM))/2                        # Peak / Trough of GeoMag data
-        amplitudeCM.append(ampCM)                                  # Append value to list
-        amplitudeGM.append(ampGM)                                  # Append value to list
+        amplitudeCM_list.append(ampCM)                             # Append value to list
+        amplitudeGM_list.append(ampGM)                             # Append value to list
+        stdev_ampCM = np.std(ampCM)                                # Calculate standard deviation of CrowdMag
+        stdev_ampGM = np.std(ampGM)                                # Calculate standard deviation of GeoMag
+        stdev_amplitudeCM_list.append(stdev_ampCM)                 # Append value to list
+        stdev_amplitudeGM_list.append(stdev_ampGM)                 # Append value to list        
         rs = dataCM.corr(dataGM)                                   # Calculate correlation coefficient of that chunk
-        rss.append(rs)
+        rss_list.append(rs)
         t_start = t_start + step
         t_end = t_end + step
-    rss = np.array(rss)
-    amplitudeCM = np.array(amplitudeCM)
-    amplitudeGM = np.array(amplitudeGM)
+    rss = np.array(rss_list)
+    amplitudeCM = np.array(amplitudeCM_list)
+    amplitudeGM = np.array(amplitudeGM_list)
+    stdev_amplitudeCM = np.array(stdev_amplitudeCM_list)
+    stdev_amplitudeGM = np.array(stdev_amplitudeGM_list)
     
     # Plot
     plt.figure(figsize=(15,7))
-    plt.title('Amplitude vs Correlation Coefficient')
-    plt.scatter(rss, amplitudeCM, label='CrowdMag')
-    plt.scatter(rss, amplitudeGM, label='GeoMag')
-    plt.xlabel('Correlation Coefficient (r)')
-    plt.ylabel('Amplitude - {} Component (nT)'.format(componentforplot))
-    plt.legend()
+    plt.title('Amplitude vs Correlation Coefficient', fontsize=14)
+    plt.errorbar(amplitudeCM, rss, yerr=stdev_amplitudeCM, marker='o', markersize=2, linestyle='none', label='CrowdMag')
+    plt.errorbar(amplitudeGM, rss, yerr=stdev_amplitudeGM, marker='o', markersize=2, linestyle='none', label='GeoMag')
+    plt.xlabel('Amplitude - {} Component (nT)'.format(componentforplot), fontsize=12)
+    plt.ylabel('Correlation Coefficient (r)', fontsize=12)
+    plt.legend(loc='lower right')
     plt.show()
