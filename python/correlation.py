@@ -268,9 +268,24 @@ def LinearFunction(x,a,b):
     """
     return a * x + b
 
+# Define Second order fitting function
+def SecondOrderFunction(x,a,b,c):
+    """Third order function.    
+    
+    Parameters
+    ----------
+    x : numpy array
+    a,b,c : int
+    
+    Returns
+    ----------
+    Numpy array of a second order function.
+    """
+    return a * x**2 + b * x + c 
+
 # Polyfit fitting
-def FittingPolyfit(data1,data2):
-    """Fitting using numpy's polyfit.    
+def FittingPolyfitLinear(data1,data2):
+    """Fitting a linear function using numpy's polyfit.    
     
     Parameters
     ----------
@@ -286,6 +301,25 @@ def FittingPolyfit(data1,data2):
     A = fit[0]
     
     return A,B
+
+def FittingPolyfitSecondOrder(data1,data2):
+    """Fitting a second order function using numpy's polyfit.    
+    
+    Parameters
+    ----------
+    data1, data2 : numpy arrays of two data sets of the same length.
+
+    Returns
+    ----------
+    A,B,C : int
+    """
+    # polyfit (second order)
+    fit = np.polyfit(data1,data2,2)
+    C = fit[2]
+    B = fit[1]
+    A = fit[0]
+    
+    return A,B,C
 
 ################################################
 ### Scatter Plot of CrowdMag and GeoMag data ###
@@ -467,12 +501,12 @@ def ScatterPlot(filenameCM,
         cmdata = CMmagZSpline(time)
         gmdata = GMmagZSpline(time)
     
-    # Calclate correlation coefficient
+    # Calculate correlation coefficient
     r = CorrelationCoefficient(cmdata,gmdata)
     # Fitting: polyfit
     x = np.linspace(np.min(gmdata),np.max(gmdata),len(GMdate))
     #x = np.linspace(np.min(cmdata),np.max(cmdata),len(CMdate))
-    slope_polyfit,intercept_polyfit = FittingPolyfit(cmdata,gmdata)
+    slope_polyfit,intercept_polyfit = FittingPolyfitLinear(cmdata,gmdata)
     # Residuals
     residuals = gmdata - LinearFunction(x,slope_polyfit,intercept_polyfit)
     # Chi squared and reduced chi squared
@@ -823,37 +857,69 @@ def RWCC(filenameCM,
     t_start = 0                        # Start at the beginning of the data set
     t_end = t_start + w                # Define the end of the chunksize
     rss_list = []                      # Empty list of correlation coeff
+    pvalue_list = []                   # Empty list of p-value
     amplitudeCM_list = []              # Empty list of amplitude of CrowdMag data
     amplitudeGM_list = []              # Empty list of amplitude of GeoMag data
-    stdev_amplitudeCM_list = []              # Empty list of amplitude of CrowdMag data
-    stdev_amplitudeGM_list = []              # Empty list of amplitude of GeoMag data
+    stdev_amplitudeCM_list = []        # Empty list of amplitude of CrowdMag data
+    stdev_amplitudeGM_list = []        # Empty list of amplitude of GeoMag data
     while t_end < len(stackdatasets):
         dataCM = stackdatasets['CrowdMag'].iloc[t_start:t_end]     # Define chunk of CrowdMag data
         dataGM = stackdatasets['GeoMag'].iloc[t_start:t_end]       # Define chunk of GeoMag data
+        rs, pvalue = stats.pearsonr(dataCM,dataGM)                 # Calculate correlation coefficient and p-value of that chunk
         ampCM = (max(dataCM)-min(dataCM))/2                        # Peak / Trough of CrowdMag data
         ampGM = (max(dataGM)-min(dataGM))/2                        # Peak / Trough of GeoMag data
-        amplitudeCM_list.append(ampCM)                             # Append value to list
-        amplitudeGM_list.append(ampGM)                             # Append value to list
-        stdev_ampCM = np.std(ampCM)                                # Calculate standard deviation of CrowdMag
-        stdev_ampGM = np.std(ampGM)                                # Calculate standard deviation of GeoMag
-        stdev_amplitudeCM_list.append(stdev_ampCM)                 # Append value to list
-        stdev_amplitudeGM_list.append(stdev_ampGM)                 # Append value to list        
-        rs = dataCM.corr(dataGM)                                   # Calculate correlation coefficient of that chunk
-        rss_list.append(rs)
+        stdev_ampCM = np.std(dataCM)                               # Calculate standard deviation of CrowdMag
+        stdev_ampGM = np.std(dataGM)                               # Calculate standard deviation of GeoMag
+        if stdev_ampGM > 0:
+            amplitudeCM_list.append(ampCM)                             # Append value to list
+            amplitudeGM_list.append(ampGM)                             # Append value to list
+            stdev_amplitudeCM_list.append(stdev_ampCM)                 # Append value to list
+            stdev_amplitudeGM_list.append(stdev_ampGM)                 # Append value to list        
+            #rs = dataCM.corr(dataGM)                                  # Calculate correlation coefficient of that chunk
+            rss_list.append(rs)
+            pvalue_list.append(pvalue)
         t_start = t_start + step
         t_end = t_end + step
     rss = np.array(rss_list)
+    pvalue = np.array(pvalue_list)
     amplitudeCM = np.array(amplitudeCM_list)
     amplitudeGM = np.array(amplitudeGM_list)
     stdev_amplitudeCM = np.array(stdev_amplitudeCM_list)
     stdev_amplitudeGM = np.array(stdev_amplitudeGM_list)
     
-    # Plot
+    # Fitting: polyfit, third order
+    x = np.linspace(np.min(stdev_amplitudeGM),np.max(stdev_amplitudeGM),len(stdev_amplitudeGM))
+    a,b,c = FittingPolyfitSecondOrder(stdev_amplitudeGM,rss)
+    
+    # Residuals
+    residuals = stdev_amplitudeGM - SecondOrderFunction(x,a,b,c)
+    # Chi squared and reduced chi squared
+    stdev = np.std(stdev_amplitudeGM)
+    chisquared = np.sum(residuals**2/stdev**2)   # not sure about the errors!!
+    # Degrees of freedom = number of data points - number of fitting parameters
+    dof = len(stdev_amplitudeGM) - 2    
+    reducedchisquared = chisquared / dof
+    
+    print("Chi-squared = {}".format(chisquared))
+    print("Reduced chi-squared = {}".format(reducedchisquared))   
+    
+    # Plot Amplitude vs Correlation Coefficient
     plt.figure(figsize=(15,7))
     plt.title('Amplitude vs Correlation Coefficient', fontsize=14)
-    plt.errorbar(amplitudeCM, rss, yerr=stdev_amplitudeCM, marker='o', markersize=2, linestyle='none', label='CrowdMag')
-    plt.errorbar(amplitudeGM, rss, yerr=stdev_amplitudeGM, marker='o', markersize=2, linestyle='none', label='GeoMag')
+    plt.scatter(amplitudeCM, rss, label='CrowdMag')
+    plt.scatter(amplitudeGM, rss, label='GeoMag', color='orange')
     plt.xlabel('Amplitude - {} Component (nT)'.format(componentforplot), fontsize=12)
+    plt.ylabel('Correlation Coefficient (r)', fontsize=12)
+    plt.legend(loc='lower right')
+    plt.show()
+    
+    # Plot Standard Deviation vs Correlation Coefficient
+    plt.figure(figsize=(15,7))
+    plt.title('Standard Deviation of Amplitude vs Correlation Coefficient', fontsize=14)
+    plt.scatter(stdev_amplitudeCM, rss, label='CrowdMag')
+    plt.scatter(stdev_amplitudeGM, rss, label='GeoMag', color='orange')
+    plt.plot(x,SecondOrderFunction(x,a,b,c), label="Second order function Fit", color='r')
+    plt.xlabel('Standard Deviation of Amplitude - {} Component (nT)'.format(componentforplot), fontsize=12)
     plt.ylabel('Correlation Coefficient (r)', fontsize=12)
     plt.legend(loc='lower right')
     plt.show()
