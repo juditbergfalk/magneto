@@ -731,7 +731,8 @@ def RWCC(filenameCM,
            window_size = 10,
            dc_shift = True,
            bkps = 4,
-           filter_signal = 'raw'):
+           filter_signal = 'raw',
+           amplimit = 0):
     """
     A heat-map of the rolling window cross correlation (RWCC) for the CrowdMag and GeoMag data sets. 
     
@@ -758,6 +759,7 @@ def RWCC(filenameCM,
                                    'ffthighfreq', 
                                    'fftbandpass', 
                                    'combo' (filtfilt and fftbandbpass)
+    amplimit : int, lower limit of amplitude to trim data, in nT
 
     Returns
     ----------
@@ -870,7 +872,7 @@ def RWCC(filenameCM,
         ampGM = (max(dataGM)-min(dataGM))/2                        # Peak / Trough of GeoMag data
         stdev_ampCM = np.std(dataCM)                               # Calculate standard deviation of CrowdMag
         stdev_ampGM = np.std(dataGM)                               # Calculate standard deviation of GeoMag
-        if stdev_ampGM > 0:
+        if stdev_ampGM > amplimit:
             amplitudeCM_list.append(ampCM)                             # Append value to list
             amplitudeGM_list.append(ampGM)                             # Append value to list
             stdev_amplitudeCM_list.append(stdev_ampCM)                 # Append value to list
@@ -887,22 +889,6 @@ def RWCC(filenameCM,
     stdev_amplitudeCM = np.array(stdev_amplitudeCM_list)
     stdev_amplitudeGM = np.array(stdev_amplitudeGM_list)
     
-    # Fitting: polyfit, third order
-    x = np.linspace(np.min(stdev_amplitudeGM),np.max(stdev_amplitudeGM),len(stdev_amplitudeGM))
-    a,b,c = FittingPolyfitSecondOrder(stdev_amplitudeGM,rss)
-    
-    # Residuals
-    residuals = stdev_amplitudeGM - SecondOrderFunction(x,a,b,c)
-    # Chi squared and reduced chi squared
-    stdev = np.std(stdev_amplitudeGM)
-    chisquared = np.sum(residuals**2/stdev**2)   # not sure about the errors!!
-    # Degrees of freedom = number of data points - number of fitting parameters
-    dof = len(stdev_amplitudeGM) - 2    
-    reducedchisquared = chisquared / dof
-    
-    print("Chi-squared = {}".format(chisquared))
-    print("Reduced chi-squared = {}".format(reducedchisquared))   
-    
     # Plot Amplitude vs Correlation Coefficient
     plt.figure(figsize=(15,7))
     plt.title('Amplitude vs Correlation Coefficient', fontsize=14)
@@ -913,12 +899,28 @@ def RWCC(filenameCM,
     plt.legend(loc='lower right')
     plt.show()
     
+    # Fitting: polyfit, third order
+    x = np.linspace(np.min(stdev_amplitudeGM),np.max(stdev_amplitudeGM),len(stdev_amplitudeGM))
+    a,b,c = FittingPolyfitSecondOrder(stdev_amplitudeGM,rss)
+    
+    # Residuals
+    residuals = stdev_amplitudeGM - SecondOrderFunction(x,a,b,c)
+    # Chi squared and reduced chi squared
+    stdev = np.std(stdev_amplitudeGM)
+    chisquared = np.sum(residuals**2/stdev**2)   # not sure about the errors!!
+    # Degrees of freedom = number of data points - number of fitting parameters
+    dof = len(stdev_amplitudeGM) - 3    
+    reducedchisquared = chisquared / dof
+    
+    print("Chi-squared = {}".format(chisquared))
+    print("Reduced chi-squared = {}".format(reducedchisquared)) 
+    
     # Plot Standard Deviation vs Correlation Coefficient
     plt.figure(figsize=(15,7))
     plt.title('Standard Deviation of Amplitude vs Correlation Coefficient', fontsize=14)
     plt.scatter(stdev_amplitudeCM, rss, label='CrowdMag')
     plt.scatter(stdev_amplitudeGM, rss, label='GeoMag', color='orange')
-    plt.plot(x,SecondOrderFunction(x,a,b,c), label="Second order function Fit", color='r')
+    plt.plot(x,SecondOrderFunction(x,a,b,c), label="Second order function fit to GeoMag data", color='r')
     plt.xlabel('Standard Deviation of Amplitude - {} Component (nT)'.format(componentforplot), fontsize=12)
     plt.ylabel('Correlation Coefficient (r)', fontsize=12)
     plt.legend(loc='lower right')
