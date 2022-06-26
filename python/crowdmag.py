@@ -107,8 +107,9 @@ def ReadCSVCrowdMag(filenameCM,
     """
     
     # Read in .csv file
-    data = pd.read_csv(filenameCM)#, parse_dates=['Time (UTC)'])
-    
+    data = pd.read_csv(filenameCM)
+                                    #, parse_dates=['Time (UTC)'])
+      
     # Selecting all rows
     rows = np.array(data.loc[:])
     
@@ -116,12 +117,7 @@ def ReadCSVCrowdMag(filenameCM,
     date = rows[:,0][startCM:endCM]
     magX = rows[:,3][startCM:endCM]
     magY = rows[:,4][startCM:endCM]
-    magZ = rows[:,5][startCM:endCM]    
-    
-    # Change to magnitude of the magnetic field
-    #magX = abs(magX)
-    #magY = abs(magY)
-    #magZ = abs(magZ)
+    magZ = rows[:,5][startCM:endCM] 
     
     # Total magnetic field
     totalmag = TotalMag(magX,magY,magZ)
@@ -325,7 +321,7 @@ def PlotBCrowdMag(filenameCM,
     warnings.simplefilter(action='ignore', category=RuntimeWarning)    
     warnings.simplefilter(action='ignore', category=UserWarning)  
     
-    # Date and Magnetic field data (x,y,z)
+    # Date and magnetic field data (total,horizontal,vertical)
     date, totalmag, magH, magX, magY, magZ = ReadCSVCrowdMag(filenameCM,startCM,endCM,
                                                              rollingave,window_size,
                                                              dc_shift,bkps,
@@ -334,7 +330,7 @@ def PlotBCrowdMag(filenameCM,
     # Time frame
     starttime = date[0]
     endtime = date[-1]
-        
+    
     # Plot
     fig = plt.figure(figsize=(15,7))
     ax = fig.add_subplot()

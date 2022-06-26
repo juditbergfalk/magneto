@@ -172,6 +172,8 @@ def DefineAllComponents(filenameCM,
                        startCM=startCM,endCM=endCM)
         DownloadGeoMag(filenameCM,component='H',observatory=observatory,
                        startCM=startCM,endCM=endCM)
+        DownloadGeoMag(filenameCM,component='F',observatory=observatory,
+                       startCM=startCM,endCM=endCM)
     
     # Read in GeoMag .csv file for each component    
     date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),startGM=startGM,endGM=endGM)
@@ -185,7 +187,10 @@ def DefineAllComponents(filenameCM,
                          #.format(observatory,starttimeYMD,endtimeYMD),
                          #startGM=startGM,endGM=endGM)[3]
     magH = cm.HorizontalMag(magX,magY)
-    totalmag = cm.TotalMag(magX,magY,magZ)
+    totalmag = ReadCSVGeoMag('data/geomag/geomag{}F_{}_{}.csv'
+                         .format(observatory,starttimeYMD,endtimeYMD),
+                         startGM=startGM,endGM=endGM)[3]
+    #totalmag = cm.TotalMag(magX,magY,magZ)
     
     # DC shift
     if dc_shift:

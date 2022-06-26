@@ -101,13 +101,12 @@ def PlotOverlay2Data(filenameCM,
     # Change timeshift to seconds
     timeshift = int(timeshift * 60/70)     # CrowdMag is 70-sec, GeoMag is 60-sec intervals
     
-    ###############
+    #################
     # CrowdMag data
     CMdate,CMtotalmag,CMmagH,CMmagX,CMmagY,CMmagZ = cm.ReadCSVCrowdMag(filenameCM,startCM,endCM,
                                                                        rollingave,window_size,
                                                                        dc_shift,bkps,
                                                                        filter_signal)
-    
     # Trim CrowdMad data
     if timeshift != 0:
         CMdate = CMdate[timeshift:]
@@ -115,14 +114,21 @@ def PlotOverlay2Data(filenameCM,
         CMmagH = CMmagH[timeshift:]
         CMmagX = CMmagX[timeshift:]
         CMmagY = CMmagY[timeshift:]
-        CMmagZ = CMmagZ[timeshift:]     
+        CMmagZ = CMmagZ[timeshift:]    
+            
+    # Spline CrowdMag data
+    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
+    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
+    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
+    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
+    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
     
     # Start time in seconds
     CMstarttime = cm.SplitTime(CMdate)[8][0]
     # Time in seconds 
     CMtimesec = cm.SplitTime(CMdate)[8] - CMstarttime
     
-    #############################
+    ###############
     # GeoMag data
     GMdate,GMtime,GMdoy,GMmagX,GMmagY,GMmagZ,GMmagH,GMtotalmag,GMtimesec,GMlocation = gm.DefineAllComponents(filenameCM,observatory,
                                                                                        startCM,endCM,startGM,endGM,
@@ -154,15 +160,7 @@ def PlotOverlay2Data(filenameCM,
     GMstarttime = cm.SplitTime(GMdatetime)[8][0]
     # Time in seconds 
     GMtimesec = cm.SplitTime(GMdatetime)[8] - GMstarttime
-    
-    ######################
-    # Spline CrowdMag data
-    CMtotalmagSpline = lambda t: SplineData(t,CMtimesec,CMtotalmag)
-    CMmagHSpline = lambda t: SplineData(t,CMtimesec,CMmagH)
-    CMmagXSpline = lambda t: SplineData(t,CMtimesec,CMmagX)
-    CMmagYSpline = lambda t: SplineData(t,CMtimesec,CMmagY)
-    CMmagZSpline = lambda t: SplineData(t,CMtimesec,CMmagZ)
-    
+       
     # Spline GeoMag data
     GMtotalmagSpline = lambda t: SplineData(t,GMtimesec,GMtotalmag)
     GMmagHSpline = lambda t: SplineData(t,GMtimesec,GMmagH)
