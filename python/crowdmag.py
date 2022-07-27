@@ -200,6 +200,10 @@ def ReadCSVCrowdMag(filenameCM,
     #totalmag = filt.Outliers(totalmag)
     #magH = filt.Outliers(magH)
     
+    # Calculate magnitude
+    totalmag = np.abs(totalmag)
+    magH = np.abs(magH)
+    
     return date, totalmag, magH, magX, magY, magZ
 
 ######################

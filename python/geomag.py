@@ -250,7 +250,11 @@ def DefineAllComponents(filenameCM,
         magY = filt.Filter_fftbandpass(magY)
         magZ = filt.Filter_fftbandpass(magZ)
         
-    magH = -magH
+    #magH = -magH
+    
+    # Calculate magnitude
+    totalmag = np.abs(totalmag)
+    magH = np.abs(magH)
     
     return date,time,doy,magX,magY,magZ,magH,totalmag,timeinseconds,location
     
