@@ -53,7 +53,7 @@ def DownloadGeoMag(filenameCM,
     myfile = requests.get(url, allow_redirects = True)
     
     # Define file location and name
-    open('data/geomag/geomag{}{}_{}_{}.csv'.format(observatory,component,starttimeYMD,endtimeYMD), 'wb').write(myfile.content) 
+    open(os.getcwd()+'/data/geomag/geomag{}{}_{}_{}.csv'.format(observatory,component,starttimeYMD,endtimeYMD), 'wb').write(myfile.content) 
     print("Download URL: {}".format(url))
     print("Downloaded file successfully. Observatory: {}, B-field component: {}, Start date: {}, End date: {}."
           .format(observatory,component,starttimeYMD,endtimeYMD))
@@ -176,18 +176,18 @@ def DefineAllComponents(filenameCM,
                        startCM=startCM,endCM=endCM)
     
     # Read in GeoMag .csv file for each component    
-    date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag('data/geomag/geomag{}X_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),startGM=startGM,endGM=endGM)
-    magY = ReadCSVGeoMag('data/geomag/geomag{}Y_{}_{}.csv'
+    date,time,doy,magX,timeinseconds,location = ReadCSVGeoMag(os.getcwd()+'/data/geomag/geomag{}X_{}_{}.csv'.format(observatory,starttimeYMD,endtimeYMD),startGM=startGM,endGM=endGM)
+    magY = ReadCSVGeoMag(os.getcwd()+'/data/geomag/geomag{}Y_{}_{}.csv'
                          .format(observatory,starttimeYMD,endtimeYMD),
                          startGM=startGM,endGM=endGM)[3]
-    magZ = ReadCSVGeoMag('data/geomag/geomag{}Z_{}_{}.csv'
+    magZ = ReadCSVGeoMag(os.getcwd()+'/data/geomag/geomag{}Z_{}_{}.csv'
                          .format(observatory,starttimeYMD,endtimeYMD),
                          startGM=startGM,endGM=endGM)[3]
-    #magH = ReadCSVGeoMag('data/geomag/geomag{}H_{}_{}.csv'
+    #magH = ReadCSVGeoMag(os.getcwd()+'/data/geomag/geomag{}H_{}_{}.csv'
                          #.format(observatory,starttimeYMD,endtimeYMD),
                          #startGM=startGM,endGM=endGM)[3]
     magH = cm.HorizontalMag(magX,magY)
-    totalmag = ReadCSVGeoMag('data/geomag/geomag{}F_{}_{}.csv'
+    totalmag = ReadCSVGeoMag(os.getcwd()+'/data/geomag/geomag{}F_{}_{}.csv'
                          .format(observatory,starttimeYMD,endtimeYMD),
                          startGM=startGM,endGM=endGM)[3]
     #totalmag = cm.TotalMag(magX,magY,magZ)
