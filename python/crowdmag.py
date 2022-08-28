@@ -18,7 +18,7 @@ import filterdata as filt
 #################################
 
 # Make a list of filenames from the crowdmag folder
-filelist = os.listdir(os.getcwd()+'./data/crowdmag/')                   
+filelist = os.listdir(os.getcwd()+'/data/crowdmag/')                   
 
 # Create a dropdown menu and label
 form_item_layout = Layout(display='flex', flex_flow='row', justify_content='space-between')
