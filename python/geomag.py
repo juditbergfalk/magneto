@@ -57,11 +57,6 @@ def DownloadGeoMag(filenameCM,
     print("Download URL: {}".format(url))
     print("Downloaded file successfully. Observatory: {}, B-field component: {}, Start date: {}, End date: {}."
           .format(observatory,component,starttimeYMD,endtimeYMD))
-    
-    # Find the path of the file
-    location = '\data\geomag'
-    path = str(pathlib.Path(__file__).parent.resolve())                    
-    print("Geomag data file location: '{}'.".format(path + location))
 
 ###################
 ### Read in csv ###
